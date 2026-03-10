@@ -5,9 +5,6 @@ __pycache__/
 venv/
 .venv/
 env/
-bin/
-lib/
-include/
 
 # IDEs
 .idea/
@@ -16,9 +13,11 @@ include/
 *.swo
 
 # Project specific
-data/
+.env
+.gemini_profile/
+desc.txt
+metadata.json
+update_meta.py
 temp_*/
 temp_*.mp3
-venv/
 *.mp3
-temp_*
