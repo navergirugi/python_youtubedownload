@@ -24,9 +24,12 @@
 ## 사용 방법
 
 1. **환경 설정**:
-   - Python 3.x 설치
+   - Python 3.14.3 설치 (추천 버전)
    - FFmpeg 설치 (시스템 경로에 등록 필요)
-   - `pip install yt-dlp`
+   - 의존성 패키지 설치:
+     ```bash
+     pip install -r requirements.txt
+     ```
 
 2. **추출 실행**:
    ```bash

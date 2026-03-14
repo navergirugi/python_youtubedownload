@@ -13,7 +13,6 @@ env/
 *.swo
 
 # Project specific
-.env
 .gemini_profile/
 desc.txt
 metadata.json
@@ -21,3 +20,5 @@ update_meta.py
 temp_*/
 temp_*.mp3
 *.mp3
+*.mp4
+.env
