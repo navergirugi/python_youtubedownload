@@ -5,6 +5,9 @@ import time
 import json
 import socket
 import subprocess
+import platform
+import traceback
+import shutil
 from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 from google import genai
@@ -918,7 +921,7 @@ def parse_tracklist_without_time(description):
 def detect_silences(audio_file):
     """ffmpeg를 사용하여 오디오 파일의 무음 구간(1.5초 이상, -30dB 이하)을 탐지합니다."""
     print(f"\n[무음 탐지] 오디오 파일을 스캔하여 곡 분할 지점을 찾고 있습니다... (시간이 소요될 수 있습니다)")
-    ffmpeg_exe = r'C:\ProgramData\chocolatey\bin\ffmpeg.exe'
+    ffmpeg_exe = get_ffmpeg_info()['full']
     
     # -i audio_file -af silencedetect=noise=-30dB:d=1.5 -f null -
     cmd = [
@@ -991,7 +994,6 @@ def check_duplicate(artist, title):
 
 def clean_temp_files(pattern):
     """임시 파일 정리."""
-    import shutil
     for f in os.listdir('.'):
         if f.startswith(pattern):
             try:
@@ -1001,6 +1003,33 @@ def clean_temp_files(pattern):
                     shutil.rmtree(f)
             except:
                 pass
+
+def get_ffmpeg_info():
+    """
+    FFmpeg의 전체 경로(full path)와 폴더 경로(directory)를 모두 반환합니다.
+    """
+    # 1. 시스템 PATH에서 먼저 검색 (가장 권장되는 방식)
+    system_path = shutil.which("ffmpeg")
+
+    if system_path:
+        full_path = system_path
+    else:
+        # 2. 시스템 PATH에 없을 경우 OS별 하드코딩 경로 탐색
+        current_os = platform.system()
+        if current_os == "Windows":
+            full_path = r'C:\ProgramData\chocolatey\bin\ffmpeg.exe'
+        elif current_os == "Darwin":  # macOS
+            full_path = '/opt/homebrew/bin/ffmpeg'
+        else:  # Linux
+            full_path = '/usr/bin/ffmpeg'
+
+    # 폴더 경로만 추출
+    dir_path = os.path.dirname(full_path)
+
+    return {
+        "full": full_path,  # 실행 파일 포함 (예: /opt/homebrew/bin/ffmpeg)
+        "dir": dir_path  # 폴더만 (예: /opt/homebrew/bin)
+    }
 
 def download_audio(url, video_id):
     """WinError 32 방지를 위해 nopart 옵션을 사용하여 다운로드."""
@@ -1021,7 +1050,7 @@ def download_audio(url, video_id):
         'outtmpl': temp_name,
         'nopart': True,  # .part 파일 생성 방지
         # FFmpeg 관련 설정 강화 (최초 설치된 초콜레티 경로 고정)
-        'ffmpeg_location': r'C:\ProgramData\chocolatey\bin', 
+        'ffmpeg_location': get_ffmpeg_info()['dir'],
         'prefer_ffmpeg': True,
         'quiet': False, # 에러 상세 확인
         'no_warnings': False,
@@ -1093,7 +1122,7 @@ def split_audio_ffmpeg(audio_file, tracks, limit=None, normalize=False):
             filepath = os.path.join(DATA_DIR, filename)
         
         # ffmpeg 명령어 구성 (절대 경로 사용)
-        ffmpeg_exe = r'C:\ProgramData\chocolatey\bin\ffmpeg.exe'
+        ffmpeg_exe = get_ffmpeg_info()['full']
         cmd = [ffmpeg_exe, '-y']
         # 단일 곡이 아니고 분할이 필요한 경우에만 -ss 적용
         if len(tracks) > 1 or start_sec > 0:
@@ -1171,8 +1200,8 @@ def process_single_video(url, info, normalize=True):
                     else:
                         require_silence_detection = True
             
-            if not tracks and duration > 300:
-                print(f"\n[건너뜀] 5분 이상 영상이나 분할 정보 없음: {video_title} ({duration}초)")
+            if not tracks and duration > 600:
+                print(f"\n[건너뜀] 10분 이상 영상이나 분할 정보 없음: {video_title} ({duration}초)")
                 return
 
     # 2. 분석 결과가 아예 없으면 단일 트랙으로 간주하고 제목에서 메타데이터 추출
@@ -1285,6 +1314,7 @@ def process_single_video(url, info, normalize=True):
         split_audio_ffmpeg(audio_file, tracks, limit=None)
     except Exception as e:
         print(f"\n[오류] {video_title} 처리 중 에러 발생: {e}")
+        traceback.print_exc()  # ← 이 줄이 에러의 '족적'을 상세히 찍어줍니다.
     finally:
         clean_temp_files(f"temp_{video_id}")
 

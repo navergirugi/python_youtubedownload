@@ -23,11 +23,53 @@
 
 ## 사용 방법
 
+### 🍎 macOS
+맥에서는 파이썬만 설치되어 있다면 바로 생성이 가능합니다.
+1. 생성: python3 -m venv .venv
+2. 활성화: source .venv/bin/activate
+
+### 🐧 Ubuntu
+우분투는 시스템 파이썬 외에 가상환경 모듈을 수동으로 추가해야 합니다.
+1. 패키지 설치: sudo apt update && sudo apt install python3-venv -y
+2. 생성: python3 -m venv .venv
+3. 활성화: source .venv/bin/activate
+
+### 🏛️ CentOS / RHEL
+CentOS는 파이썬 개발 도구(devel)에 포함되어 있는 경우가 많습니다.
+1. 패키지 설치: sudo dnf install python3 -y
+2. 생성: python3 -m venv .venv
+3. 활성화: source .venv/bin/activate
+
+## 가상 환경 확인
+python3 -c "import sys; print(sys.executable)"
+
+## 잘못된 버전이 설치 되었을때
+# 1. 활성화되어 있다면 종료
+deactivate
+
+# 2. 기존 가상환경 폴더 삭제 (주의: 소스 코드가 아닌 .venv 폴더만 삭제)
+rm -rf .venv
+
+# 3. 시스템의 3.14 버전을 지정해서 다시 생성
+python3.14 -m venv .venv
+
+# 4. 가상환경 재활성화
+source .venv/bin/activate
+
+# 5. 버전 확인
+python --version
+
+## ffmege 설치 - pip 와 별도로 설치 해야 함
+- mac => brew install ffmpeg
+- ubuntu => sudo apt update && sudo apt install ffmpeg -y
+- sudo dnf install epel-release -y && sudo dnf install ffmpeg -y
+
 1. **환경 설정**:
    - Python 3.14.3 설치 (추천 버전)
    - FFmpeg 설치 (시스템 경로에 등록 필요)
    - 의존성 패키지 설치:
      ```bash
+     pip install --upgrade pip
      pip install -r requirements.txt
      ```
 
