@@ -164,7 +164,13 @@ def _fetch_title(url: str) -> tuple[str, str]:
     try:
         from yt_dlp import YoutubeDL
 
-        with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 30}) as ydl:
+        with YoutubeDL({
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "socket_timeout": 30,
+            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        }) as ydl:
             info = ydl.extract_info(url, download=False)
         if isinstance(info, dict):
             return (info.get("uploader") or info.get("channel") or "", info.get("title") or "")
