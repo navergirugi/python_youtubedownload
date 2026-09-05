@@ -45,12 +45,10 @@ pyinstaller --onefile cli.py      # CLI
 
 ## GitHub Release (윈도우 빌드)
 
-맥에서는 윈도우용을 못 만들으니 태그만 찍으면 GitHub Actions가 윈도우/맥 둘 다 빌드해서 Release에 올려줘. ffmpeg 내장이라 받는 쪽은 따로 설치 불필요.
+맥에서는 윈도우용을 못 만들으니 Actions에서 수동으로 빌드해. ffmpeg 내장이라 받는 쪽은 따로 설치 불필요.
 
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-→ Actions 탭에서 빌드 확인 → Releases 페이지에서 `MusicDownloader-win.zip` / `MusicDownloader-mac-app.zip` 다운로드
+리포지토리 → Actions → Release build → Run workflow → 태그 입력(예: v1.0.1) → 실행
+→ 끝나면 Releases 페이지에서 `MusicDownloader-win.zip` / `MusicDownloader-mac-app.zip` 다운로드
 
 ## 구조
 
