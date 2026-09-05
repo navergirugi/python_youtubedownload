@@ -1,9 +1,12 @@
 name: Release build
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '릴리즈 태그 (예: v1.0.1)'
+        required: true
+        default: 'v1.0.0'
 
 permissions:
   contents: write
@@ -61,6 +64,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag }}
           files: |
             MusicDownloader-win.zip
             MusicDownloader-mac-app.zip
