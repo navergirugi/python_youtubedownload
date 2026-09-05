@@ -13,17 +13,21 @@ def _ffmpeg_binaries():
     import os as _os
     import shutil as _shutil
 
+    # choco shim dir: 위임용 실행기라 번들하면 깨짐. 진짜는
+    # C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin\에 있음.
+    _SHIM_DIR = _os.path.normcase(
+        r"C:\ProgramData\chocolatey\bin" + _os.sep
+    )
+
     seen: set[str] = set()
     out: list[tuple[str, str]] = []
 
     def _add(exe: str | None) -> None:
         if not exe or not _os.path.isfile(exe):
             return
-        try:
-            if _os.path.getsize(exe) < 1_000_000:
-                return  # choco shim(수백KB) 제외, 진짜 바이너리(수십MB)만
-        except OSError:
+        if _os.path.normcase(_os.path.abspath(exe)).startswith(_SHIM_DIR):
             return
+        exe = _os.path.realpath(exe)  # brew symlink → Cellar 실체
         key = _os.path.normcase(_os.path.abspath(exe))
         if key in seen:
             return
