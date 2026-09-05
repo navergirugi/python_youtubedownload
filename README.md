@@ -41,7 +41,7 @@ brew install ffmpeg
 **앱 빌드 (원할 때만)**
 ```bash
 pyinstaller --noconfirm app.spec  # GUI → dist/MusicDownloader.app
-pyinstaller --onefile cli.py      # CLI
+pyinstaller --noconfirm cli.spec  # CLI → dist/cli (ffmpeg 내장)
 ```
 
 ## GitHub Release (윈도우 빌드)
@@ -80,7 +80,7 @@ choco install ffmpeg
 **앱 빌드**
 ```powershell
 .venv\Scripts\pyinstaller --noconfirm app.spec  # GUI → dist\MusicDownloader\MusicDownloader.exe
-.venv\Scripts\pyinstaller --onefile cli.py       # CLI → dist\cli.exe
+.venv\Scripts\pyinstaller --noconfirm cli.spec  # CLI → dist\cli.exe (ffmpeg 내장)
 ```
 - 참고: `icon.icns`는 맥용이라 윈도우 exe 아이콘은 기본으로 나옴
 
