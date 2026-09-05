@@ -334,6 +334,7 @@ class UrlTab(QWidget):
         super().__init__()
         self.log_fn = log_fn
         self.worker = None
+        self._meta_worker = None
         layout = QVBoxLayout(self)
         self.url = QLineEdit()
         self.url.setPlaceholderText("유튜브 URL 붙여넣기")
@@ -380,17 +381,44 @@ class UrlTab(QWidget):
         is_audio = self.kind.currentText().startswith("음원")
         q = self.quality.currentText()
         a, t = self.artist.text().strip(), self.title.text().strip()
-        if not a or not t:
+        if a and t:
+            self._start_url_download(url, is_audio, q, a, t)
+            return
+        # 메타조회는 UI 스레드에서 하면 멈춰 보여서 워커로 분리 (최대 30초)
+        self.dl_btn.setEnabled(False)
+        self.log_fn("영상 정보 조회 중... (최대 30초)")
+        base_a, base_t = a, t
+
+        def fetch(log):
             try:
                 from yt_dlp import YoutubeDL
 
                 with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 30}) as ydl:
                     info = ydl.extract_info(url, download=False)
-                if isinstance(info, dict):
-                    a = a or info.get("uploader") or info.get("channel") or "Unknown"
-                    t = t or info.get("title") or "url_download"
-            except Exception:
-                a, t = a or "Unknown", t or "url_download"
+            except Exception as e:
+                return f"ERR\t{e}"
+            if not isinstance(info, dict):
+                return "ERR\t영상 정보를 읽지 못했습니다."
+            fa = (base_a or info.get("uploader") or info.get("channel") or "Unknown").replace("\n", " ").replace("\t", " ")
+            ft = (base_t or info.get("title") or "url_download").replace("\n", " ").replace("\t", " ")
+            return f"OK\t{fa}\t{ft}"
+
+        w = Worker(fetch)
+        w.done.connect(lambda ok_, msg: self._on_meta_ready(ok_, msg, url, is_audio, q))
+        w.start()
+        self._meta_worker = w  # keep ref
+
+    def _on_meta_ready(self, ok, msg, url, is_audio, q):
+        self.dl_btn.setEnabled(True)
+        if not ok or not msg.startswith("OK\t"):
+            err = msg[4:] if msg.startswith("ERR\t") else msg
+            self.log_fn(f"정보 조회 실패: {err}")
+            QMessageBox.warning(self, "조회 실패", f"영상 정보를 가져오지 못했습니다.\n{err}\n(가수명/제목을 직접 입력하면 건너뜁니다.)")
+            return
+        _, a, t = msg.split("\t", 2)
+        self._start_url_download(url, is_audio, q, a, t)
+
+    def _start_url_download(self, url, is_audio, q, a, t):
         ext = ".mp3" if is_audio else ".mp4"
         fname = naming.song_filename(a, t) + ext
         ok = QMessageBox.question(self, "URL 컨펌", f"{url}\n{a} - {t} ({q})\n파일명: {fname}\n(이름 바꾸려면 위 입력란 수정)\n\n다운로드할까요?")

@@ -72,7 +72,7 @@ def normalize_loudness(path: str, bitrate: str) -> None:
         "-ar", "44100", "-b:a", f"{bitrate}k",
         tmp_out,
     ]
-    r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
     if r.returncode != 0 or not os.path.exists(tmp_out):
         if os.path.exists(tmp_out):
             os.remove(tmp_out)
