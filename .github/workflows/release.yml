@@ -1,0 +1,68 @@
+name: Release build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+          - os: macos-14
+            target: mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Build GUI
+        run: pyinstaller --noconfirm app.spec
+
+      - name: Build CLI (onefile)
+        run: pyinstaller --noconfirm --onefile cli.py
+
+      - name: Smoke test (Windows)
+        if: matrix.target == 'win'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist\MusicDownloader\ffmpeg.exe)) { throw 'bundled ffmpeg missing' }
+          "q" | .\dist\cli.exe
+          if ($LASTEXITCODE -ne 0) { throw "cli smoke failed: $LASTEXITCODE" }
+
+      - name: Smoke test (macOS)
+        if: matrix.target == 'mac'
+        run: |
+          test -f dist/MusicDownloader.app/Contents/MacOS/ffmpeg || { echo 'bundled ffmpeg missing'; exit 1; }
+          printf 'q\n' | ./dist/cli
+
+      - name: Package (Windows)
+        if: matrix.target == 'win'
+        shell: pwsh
+        run: Compress-Archive -Path dist\MusicDownloader, dist\cli.exe -DestinationPath MusicDownloader-win.zip
+
+      - name: Package (macOS)
+        if: matrix.target == 'mac'
+        run: |
+          ditto -c -k --sequesterRsrc dist/MusicDownloader.app MusicDownloader-mac-app.zip
+          zip -j MusicDownloader-mac-cli.zip dist/cli
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            MusicDownloader-win.zip
+            MusicDownloader-mac-app.zip
+            MusicDownloader-mac-cli.zip
+          generate_release_notes: true
