@@ -11,7 +11,7 @@ DATA_AUDIO = os.path.join(DATA_DIR, "audio")
 DATA_VIDEO = os.path.join(DATA_DIR, "video")
 
 # 앱 버전 + 무서버 업데이트 확인용 (GitHub raw version.json을 서버처럼 사용)
-APP_VERSION = "1.0.9"
+APP_VERSION = "1.0.10"
 UPDATE_URL = (
     "https://raw.githubusercontent.com/navergirugi/python_youtubedownload"
     "/master/version.json"
