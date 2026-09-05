@@ -28,14 +28,17 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Setup ffmpeg (ffprobe 포함)
+        uses: FedericoCarboni/setup-ffmpeg@v3
+
       - name: Install deps
         run: pip install -r requirements.txt
 
       - name: Build GUI
         run: pyinstaller --noconfirm app.spec
 
-      - name: Build CLI (onefile)
-        run: pyinstaller --noconfirm --onefile cli.py
+      - name: Build CLI (onefile, ffmpeg 내장)
+        run: pyinstaller --noconfirm cli.spec
 
       - name: Smoke test (Windows)
         if: matrix.target == 'win'
@@ -44,6 +47,10 @@ jobs:
           $f = Get-ChildItem -Recurse -Filter 'ffmpeg*.exe' dist\MusicDownloader
           $f | Select-Object FullName
           if (-not $f) { throw 'bundled ffmpeg missing' }
+          $p = Get-ChildItem -Recurse -Filter 'ffprobe*.exe' dist\MusicDownloader
+          $p | Select-Object FullName
+          if (-not $p) { throw 'bundled ffprobe missing' }
+          if (-not (Test-Path .\dist\cli.exe)) { throw 'cli.exe missing' }
           "q" | .\dist\cli.exe
           if ($LASTEXITCODE -ne 0) { throw "cli smoke failed: $LASTEXITCODE" }
 
@@ -52,6 +59,8 @@ jobs:
         run: |
           find dist -iname 'ffmpeg*' | head -10
           find dist -iname 'ffmpeg*' | grep -q . || { echo 'bundled ffmpeg missing'; exit 1; }
+          find dist -iname 'ffprobe*' | head -10
+          find dist -iname 'ffprobe*' | grep -q . || { echo 'bundled ffprobe missing'; exit 1; }
           printf 'q\n' | ./dist/cli
 
       - name: Package (Windows)
