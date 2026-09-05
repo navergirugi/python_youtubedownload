@@ -19,8 +19,22 @@ def _progress_hook(d: dict) -> None:
         print("\n변환 중...")
 
 
+def _ffmpeg_location() -> str | None:
+    """check_ffmpeg() 실경로의 디렉토리 (yt-dlp ffmpeg_location용).
+
+    yt-dlp는 바이너리 경로 대신 디렉토리를 받으면
+    같은 폴더의 ffmpeg+ffprobe를 둘 다 찾는다.
+    """
+    try:
+        exe = config.check_ffmpeg()
+    except Exception:
+        return None
+    d = os.path.dirname(exe)
+    return d or None
+
+
 def _base_opts() -> dict:
-    return {
+    opts = {
         "quiet": True,
         "no_warnings": True,
         "progress_hooks": [_progress_hook],
@@ -39,7 +53,9 @@ def _base_opts() -> dict:
         },
         # 403 SABR 차단 우회: android 클라이언트 우선, web 폴백
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        **({"ffmpeg_location": loc} if (loc := _ffmpeg_location()) else {}),
     }
+    return opts
 
 
 def normalize_loudness(path: str, bitrate: str) -> None:
