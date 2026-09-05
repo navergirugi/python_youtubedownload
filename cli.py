@@ -190,7 +190,19 @@ def flow_url() -> None:
         print(f"실패: {e}")
 
 
+def _fix_console_encoding() -> None:
+    """윈도우 cp1252 콘솔에서 한글 출력 크래시 방지."""
+    import sys
+
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main() -> None:
+    _fix_console_encoding()
     print("=" * 60)
     print(" Music Downloader: 1=TOP100 / 2=MP3 / 3=MP4 / 4=URL직접 / 5=저장위치")
     print(" 공통: 유튜브 검색 -> URL 컨펌 -> 아니면 재검색 -> 확정 후 다운로드")
