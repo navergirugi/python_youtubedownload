@@ -4,6 +4,7 @@ from __future__ import annotations
 import config
 import download
 import melon
+import update
 from melon import MelonBlocked
 from models import SongEntry
 from search import confirm_loop_cli, merge_candidates, youtube_search
@@ -234,8 +235,19 @@ def _mode_actions():
 
 def main() -> None:
     _fix_console_encoding()
+    need, force, info = update.check_update()
+    if need and force:
+        print(f"[필수 업데이트] 현재 v{config.APP_VERSION} → 최신 v{info.get('latest')}.")
+        if info.get("notes"):
+            print(info["notes"])
+        print(f"다운로드: {info.get('url', '')}")
+        update.open_release_page(info)
+        input("엔터 누르면 종료합니다...")
+        return
+    if need:
+        print(f"[업데이트 알림] {update.format_notice(info)}")
     print("=" * 60)
-    print(" Music Downloader")
+    print(f" Music Downloader v{config.APP_VERSION}")
     print(" 공통: 유튜브 검색 -> URL 컨펌 -> 아니면 재검색 -> 확정 후 다운로드")
     print("=" * 60)
     while True:

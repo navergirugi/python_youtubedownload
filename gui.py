@@ -30,6 +30,7 @@ import config
 import download
 import melon
 import naming
+import update
 from melon import MelonBlocked
 from models import Candidate, SongEntry
 from search import MORE_STEP, merge_candidates, youtube_search
@@ -493,7 +494,7 @@ class SettingsTab(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("🎵 Music Downloader")
+        self.setWindowTitle(f"🎵 Music Downloader v{config.APP_VERSION}")
         self.resize(900, 650)
         central = QWidget()
         layout = QVBoxLayout(central)
@@ -522,6 +523,22 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setStyleSheet(APP_STYLE)
+    need, force, info = update.check_update()
+    if need and force:
+        QMessageBox.critical(
+            None, "필수 업데이트",
+            f"현재 v{config.APP_VERSION} → 최신 v{info.get('latest')} 필수 업데이트가 있습니다.\n"
+            f"{info.get('notes', '')}\n다운로드 페이지로 이동합니다.",
+        )
+        update.open_release_page(info)
+        sys.exit(1)
+    if need:
+        go = QMessageBox.question(
+            None, "업데이트 알림",
+            f"{update.format_notice(info)}\n\n지금 다운로드 페이지로 이동할까요?",
+        )
+        if go == QMessageBox.StandardButton.Yes:
+            update.open_release_page(info)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
