@@ -38,14 +38,14 @@ from search import MORE_STEP, merge_candidates, youtube_search
 APP_STYLE = """
 QMainWindow { background: #f2f4f8; }
 QWidget { font-size: 13px; }
-QTabWidget::pane { border: 1px solid #d5dae1; border-radius: 10px; background: white; }
+QTabWidget::pane { border: 1px solid #d5dae1; border-radius: 10px; background: white; color: #222; }
 QTabBar::tab { background: #e6ebf2; color: #333; padding: 8px 14px; margin-right: 4px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
 QTabBar::tab:selected { background: white; color: #111; font-weight: bold; }
 QPushButton { background: #2f7cf6; color: white; border: none; border-radius: 7px; padding: 8px 14px; font-weight: 600; }
 QPushButton:hover { background: #1f68e0; }
 QPushButton:disabled { background: #bcc5d0; color: #f0f0f0; }
-QLineEdit, QPlainTextEdit, QComboBox { background: white; border: 1px solid #d5dae1; border-radius: 6px; padding: 6px; selection-background-color: #d7e7ff; }
-QTableWidget { background: white; border: 1px solid #d5dae1; border-radius: 6px; gridline-color: #eceff3; selection-background-color: #d7e7ff; selection-color: #111; }
+QLineEdit, QPlainTextEdit, QComboBox { background: white; border: 1px solid #d5dae1; border-radius: 6px; padding: 6px; color: #222; selection-background-color: #d7e7ff; }
+QTableWidget { background: white; border: 1px solid #d5dae1; border-radius: 6px; color: #222; gridline-color: #eceff3; selection-background-color: #d7e7ff; selection-color: #111; }
 QHeaderView::section { background: #eef1f6; color: #333; padding: 6px; border: none; font-weight: 600; }
 QLabel { color: #222; }
 """
