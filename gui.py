@@ -45,12 +45,22 @@ QPushButton { background: #2f7cf6; color: white; border: none; border-radius: 7p
 QPushButton:hover { background: #1f68e0; }
 QPushButton:disabled { background: #bcc5d0; color: #f0f0f0; }
 QLineEdit, QPlainTextEdit, QComboBox { background: white; border: 1px solid #d5dae1; border-radius: 6px; padding: 6px; color: #222; selection-background-color: #d7e7ff; }
+QComboBox QAbstractItemView { background: white; color: #222; selection-background-color: #d7e7ff; selection-color: #111; }
 QTableWidget { background: white; border: 1px solid #d5dae1; border-radius: 6px; color: #222; gridline-color: #eceff3; selection-background-color: #d7e7ff; selection-color: #111; }
 QHeaderView::section { background: #eef1f6; color: #333; padding: 6px; border: none; font-weight: 600; }
 QLabel { color: #222; }
 QMessageBox { background: white; }
 QMessageBox QLabel { color: #222; }
 """
+
+
+_THREADS: list[QThread] = []
+
+
+def _track(thread: QThread) -> QThread:
+    _THREADS.append(thread)
+    thread.finished.connect(lambda: _THREADS.remove(thread) if thread in _THREADS else None)
+    return thread
 
 
 class Worker(QThread):
@@ -60,6 +70,7 @@ class Worker(QThread):
     def __init__(self, fn, parent=None):
         super().__init__(parent)
         self._fn = fn
+        _track(self)
 
     def run(self):
         try:
@@ -88,6 +99,7 @@ class SearchWorker(QThread):
         super().__init__(parent)
         self._query = query
         self._n = n
+        _track(self)
 
     def run(self):
         try:
@@ -393,7 +405,8 @@ class UrlTab(QWidget):
             try:
                 from yt_dlp import YoutubeDL
 
-                with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 30}) as ydl:
+                opts = {**download._base_opts(), "skip_download": True}
+                with YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=False)
             except Exception as e:
                 return f"ERR\t{e}"
@@ -549,6 +562,16 @@ class MainWindow(QMainWindow):
 
     def log(self, msg: str):
         self.log_view.appendPlainText(msg)
+
+    def closeEvent(self, e):
+        for w in list(_THREADS):
+            if w.isRunning():
+                w.requestInterruption()
+        for w in list(_THREADS):
+            if w.isRunning() and not w.wait(3000):
+                w.terminate()
+                w.wait(3000)
+        e.accept()
 
 
 def main():
