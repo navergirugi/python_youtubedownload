@@ -48,6 +48,8 @@ QLineEdit, QPlainTextEdit, QComboBox { background: white; border: 1px solid #d5d
 QTableWidget { background: white; border: 1px solid #d5dae1; border-radius: 6px; color: #222; gridline-color: #eceff3; selection-background-color: #d7e7ff; selection-color: #111; }
 QHeaderView::section { background: #eef1f6; color: #333; padding: 6px; border: none; font-weight: 600; }
 QLabel { color: #222; }
+QMessageBox { background: white; }
+QMessageBox QLabel { color: #222; }
 """
 
 
@@ -382,7 +384,7 @@ class UrlTab(QWidget):
             try:
                 from yt_dlp import YoutubeDL
 
-                with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True}) as ydl:
+                with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 30}) as ydl:
                     info = ydl.extract_info(url, download=False)
                 if isinstance(info, dict):
                     a = a or info.get("uploader") or info.get("channel") or "Unknown"
@@ -397,6 +399,7 @@ class UrlTab(QWidget):
         self.dl_btn.setEnabled(False)
 
         def job(log):
+            log(f"다운로드 시작: {url} ({q})")
             if is_audio:
                 return download.download_audio(url, a, t, bitrate=q)
             return download.download_video(url, a, t, quality=q)
