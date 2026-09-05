@@ -1,6 +1,8 @@
 """무서버 강제 업데이트 체크 (GitHub raw version.json을 서버처럼 사용)."""
 from __future__ import annotations
 
+import sys
+import time
 import webbrowser
 
 import config
@@ -17,7 +19,10 @@ def parse_version(s: str) -> tuple[int, ...]:
 def fetch_remote_info() -> dict:
     import requests
 
-    r = requests.get(config.UPDATE_URL, timeout=config.UPDATE_TIMEOUT)
+    # raw CDN 캐시(수 분 stale) 우회: 쿼리가 바뀌면 캐시 키가 달라짐
+    sep = "&" if "?" in config.UPDATE_URL else "?"
+    url = f"{config.UPDATE_URL}{sep}t={int(time.time())}"
+    r = requests.get(url, timeout=config.UPDATE_TIMEOUT)
     r.raise_for_status()
     d = r.json()
     return d if isinstance(d, dict) else {}
@@ -40,7 +45,9 @@ def check_update() -> tuple[bool, bool, dict]:
         if cur < latest:
             return True, False, info
         return False, False, info
-    except Exception:
+    except Exception as e:
+        if sys.stderr is not None:
+            print(f"업데이트 확인 실패: {e}", file=sys.stderr)
         return False, False, {}
 
 
