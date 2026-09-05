@@ -40,6 +40,7 @@ def _base_opts() -> dict:
         "progress_hooks": [_progress_hook],
         "retries": 3,
         "fragment_retries": 3,
+        "socket_timeout": 30,
         "geo_bypass": True,
         "nocheckcertificate": False,
         "http_headers": {

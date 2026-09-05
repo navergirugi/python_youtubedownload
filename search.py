@@ -25,6 +25,7 @@ def youtube_search(query: str, n: int = config.YTSEARCH_N) -> list[Candidate]:
         "no_warnings": True,
         "skip_download": True,
         "extract_flat": False,
+        "socket_timeout": 30,
     }
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(f"ytsearch{n}:{query}", download=False)
