@@ -246,6 +246,8 @@ def main() -> None:
         return
     if need:
         print(f"[업데이트 알림] {update.format_notice(info)}")
+    if not info:
+        print("업데이트 확인 실패: 네트워크 문제로 최신 버전을 확인하지 못했습니다.")
     print("=" * 60)
     print(f" Music Downloader v{config.APP_VERSION}")
     print(" 공통: 유튜브 검색 -> URL 컨펌 -> 아니면 재검색 -> 확정 후 다운로드")

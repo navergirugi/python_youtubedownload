@@ -543,6 +543,8 @@ def main():
         if go == QMessageBox.StandardButton.Yes:
             update.open_release_page(info)
     win = MainWindow()
+    if not info:
+        win.log("업데이트 확인 실패: 네트워크 문제로 최신 버전을 확인하지 못했습니다. 새 버전이 있을 수 있으니 Releases를 확인하세요.")
     win.show()
     sys.exit(app.exec())
 
