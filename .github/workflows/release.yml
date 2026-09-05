@@ -24,6 +24,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bump APP_VERSION from tag
+        shell: bash
+        run: |
+          VER="${{ inputs.tag }}"
+          VER="${VER#v}"
+          python - "$VER" <<'EOF'
+          import re, sys
+          ver = sys.argv[1]
+          assert re.fullmatch(r"\d+\.\d+\.\d+", ver), f"bad version: {ver}"
+          p = "config.py"
+          s = open(p, encoding="utf-8").read()
+          s2 = re.sub(r'APP_VERSION = "[^"]+"', f'APP_VERSION = "{ver}"', s, count=1)
+          assert s2 != s, "APP_VERSION pattern not found"
+          open(p, "w", encoding="utf-8").write(s2)
+          print("APP_VERSION ->", ver)
+          EOF
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
@@ -87,3 +104,31 @@ jobs:
             MusicDownloader-mac-app.zip
             MusicDownloader-mac-cli.zip
           generate_release_notes: true
+
+      # 릴리즈 발행 후에 version.json을 갱신해야 기존 설치본에 알림이 뜬다.
+      # (먼저 올리면 미배포 버전을 받으라고 뜨게 됨)
+      - name: Bump version.json and push
+        if: matrix.target == 'win'
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          VER="${TAG#v}"
+          python - "$VER" "$TAG" <<'EOF'
+          import json, sys
+          ver, tag = sys.argv[1], sys.argv[2]
+          d = {
+            "latest": ver,
+            "min_required": ver,
+            "url": f"https://github.com/navergirugi/python_youtubedownload/releases/tag/{tag}",
+            "notes": f"v{ver} 필수 업데이트. 구버전은 실행이 차단됩니다.",
+          }
+          with open("version.json", "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+          print("version.json ->", ver)
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config.py version.json
+          git commit -m "Release ${TAG}: bump APP_VERSION + version.json" || echo "nothing to commit"
+          git push
