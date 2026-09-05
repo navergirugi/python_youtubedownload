@@ -145,6 +145,17 @@ def flow_settings() -> None:
         print(f"영상 저장: {config.set_video_dir(v)}")
     if not a and not v:
         print("변경 없음.")
+    names = {"top100": "TOP100", "audio": "음원", "video": "영상"}
+    cur = config.get_menu_order()
+    print(f"현재 1~3번 순서: {' '.join(names[k] for k in cur)} (4=URL직접, 5=저장위치는 고정)")
+    o = input("새 순서 (예: 2 3 1, 엔터=유지): ").strip()
+    if o:
+        keys = [["top100", "audio", "video"][int(d) - 1] for d in o if d in "123"]
+        try:
+            new = config.set_menu_order(keys)
+            print(f"순서 저장: {' '.join(names[k] for k in new)}")
+        except ValueError as e:
+            print(f"무시됨: {e}")
 
 
 def _fetch_title(url: str) -> tuple[str, str]:
@@ -201,28 +212,43 @@ def _fix_console_encoding() -> None:
             pass
 
 
+def _mode_actions():
+    def _audio():
+        a = input("가수명: ").strip()
+        t = input("제목: ").strip()
+        if a and t:
+            flow_audio(a, t)
+
+    def _video():
+        a = input("가수명: ").strip()
+        t = input("제목: ").strip()
+        if a and t:
+            flow_video(a, t)
+
+    return {
+        "top100": ("멜론 TOP100 전체 음원", flow_top100),
+        "audio": ("음원(MP3)", _audio),
+        "video": ("영상(MP4)", _video),
+    }
+
+
 def main() -> None:
     _fix_console_encoding()
     print("=" * 60)
-    print(" Music Downloader: 1=TOP100 / 2=MP3 / 3=MP4 / 4=URL직접 / 5=저장위치")
+    print(" Music Downloader")
     print(" 공통: 유튜브 검색 -> URL 컨펌 -> 아니면 재검색 -> 확정 후 다운로드")
     print("=" * 60)
     while True:
+        order = config.get_menu_order()
+        actions = _mode_actions()
+        labels = {str(i + 1): key for i, key in enumerate(order)}
+        menu = " / ".join(f"{i + 1}={actions[k][0]}" for i, k in enumerate(order))
+        print(f" 메뉴: {menu} / 4=URL직접 / 5=저장위치")
         sel = input("선택 (1/2/3/4/5, q=종료): ").strip().lower()
         if sel in ("q", ""):
             break
-        if sel == "1":
-            flow_top100()
-        elif sel == "2":
-            a = input("가수명: ").strip()
-            t = input("제목: ").strip()
-            if a and t:
-                flow_audio(a, t)
-        elif sel == "3":
-            a = input("가수명: ").strip()
-            t = input("제목: ").strip()
-            if a and t:
-                flow_video(a, t)
+        if sel in labels:
+            actions[labels[sel]][1]()
         elif sel == "4":
             flow_url()
         elif sel == "5":

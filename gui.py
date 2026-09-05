@@ -434,6 +434,15 @@ class SettingsTab(QWidget):
         save_row.addWidget(self.reset_btn)
         save_row.addStretch(1)
         layout.addLayout(save_row)
+        ord_row = QHBoxLayout()
+        ord_row.addWidget(QLabel("1~3번 순서:"))
+        self.order_edit = QLineEdit()
+        self.order_edit.setPlaceholderText("예: 2 3 1 (다음 실행부터 적용)")
+        self.order_btn = QPushButton("🔢 순서 적용")
+        self.order_btn.clicked.connect(self.on_order)
+        ord_row.addWidget(self.order_edit, 1)
+        ord_row.addWidget(self.order_btn)
+        layout.addLayout(ord_row)
         layout.addStretch(1)
 
     def _refresh(self):
@@ -471,6 +480,15 @@ class SettingsTab(QWidget):
         self._refresh()
         self.log_fn("저장 위치 초기화됨.")
 
+    def on_order(self):
+        keys = [["top100", "audio", "video"][int(d) - 1] for d in self.order_edit.text() if d in "123"]
+        try:
+            config.set_menu_order(keys)
+            self.log_fn(f"메뉴 순서 저장 (다음 실행부터 적용): {' '.join(keys)}")
+            self.order_edit.clear()
+        except ValueError as e:
+            self.log_fn(f"순서 무시됨: {e}")
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -480,9 +498,14 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         tabs = QTabWidget()
-        tabs.addTab(Top100Tab(self.log), "🏆 1. 멜론 TOP100")
-        tabs.addTab(SearchTab("audio", self.log), "🎵 2. 음원(MP3)")
-        tabs.addTab(SearchTab("video", self.log), "🎬 3. 영상(MP4)")
+        makers = {
+            "top100": ("🏆 멜론 TOP100", lambda: Top100Tab(self.log)),
+            "audio": ("🎵 음원(MP3)", lambda: SearchTab("audio", self.log)),
+            "video": ("🎬 영상(MP4)", lambda: SearchTab("video", self.log)),
+        }
+        for i, key in enumerate(config.get_menu_order()):
+            label, make = makers[key]
+            tabs.addTab(make(), f"{i + 1}. {label}")
         tabs.addTab(UrlTab(self.log), "🔗 4. URL 직접")
         tabs.addTab(SettingsTab(self.log), "⚙️ 5. 저장 위치")
         layout.addWidget(tabs, 1)

@@ -13,7 +13,7 @@
 
 ## STRUCTURE
 ```
-config.py    # DATA_AUDIO/VIDEO, 저장위치 설정(~/.musicdownloader.json), YTSEARCH_N=10, MELON_URL/HEADERS, check_ffmpeg()
+config.py    # DATA_AUDIO/VIDEO, 저장위치+메뉴순서 설정(~/.musicdownloader.json), YTSEARCH_N=10, MELON_URL/HEADERS, check_ffmpeg()
 models.py    # Candidate(title,url,channel,duration_str), SongEntry(artist,title)
 naming.py    # sanitize(), unique_path() '(1)' suffix, song_filename()
 search.py    # youtube_search(ytsearchN), merge_candidates(), format_candidates(), confirm_loop_cli(m=더 보기)

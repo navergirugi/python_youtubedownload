@@ -96,6 +96,33 @@ def reset_dirs() -> None:
     _save_settings(d)
 
 
+# 1~3번 메뉴 (URL직접/설정은 뒤에 고정)
+MENU_MODES = (
+    ("top100", "멜론 TOP100"),
+    ("audio", "음원(MP3)"),
+    ("video", "영상(MP4)"),
+)
+DEFAULT_MENU_ORDER = ["top100", "audio", "video"]
+
+
+def get_menu_order() -> list[str]:
+    keys = [k for k, _ in MENU_MODES]
+    order = _load_settings().get("menu_order")
+    if isinstance(order, list) and sorted(order) == sorted(keys):
+        return list(order)
+    return list(DEFAULT_MENU_ORDER)
+
+
+def set_menu_order(order: list[str]) -> list[str]:
+    keys = [k for k, _ in MENU_MODES]
+    if sorted(order) != sorted(keys):
+        raise ValueError(f"1,2,3번을 중복 없이 모두 지정하세요 (예: 2 3 1)")
+    d = _load_settings()
+    d["menu_order"] = list(order)
+    _save_settings(d)
+    return list(order)
+
+
 class FFmpegMissingError(RuntimeError):
     pass
 
