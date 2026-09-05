@@ -62,7 +62,7 @@ jobs:
       - name: Package (macOS)
         if: matrix.target == 'mac'
         run: |
-          cd dist && ditto -c -k --sequesterRsrc MusicDownloader.app "$GITHUB_WORKSPACE/MusicDownloader-mac-app.zip" && cd ..
+          cd dist && ditto -c -k --sequesterRsrc --keepParent MusicDownloader.app "$GITHUB_WORKSPACE/MusicDownloader-mac-app.zip" && cd ..
           zip -j MusicDownloader-mac-cli.zip dist/cli
 
       - uses: softprops/action-gh-release@v2
