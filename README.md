@@ -83,3 +83,7 @@ choco install ffmpeg
 .venv\Scripts\pyinstaller --onefile cli.py       # CLI → dist\cli.exe
 ```
 - 참고: `icon.icns`는 맥용이라 윈도우 exe 아이콘은 기본으로 나옴
+
+## License
+
+MIT — `LICENSE` 파일 참고
