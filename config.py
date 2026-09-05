@@ -107,27 +107,32 @@ def ensure_dirs() -> None:
 
 def _bundled_ffmpeg() -> str | None:
     """PyInstaller 번들 옆에 딸려온 ffmpeg 탐색 (릴리즈 빌드용).
-    imageio-ffmpeg 바이너리는 'ffmpeg-<plat>-<ver>' 형태라 prefix 매칭."""
+    수집 위치가 플랫폼마다 달라(루트/Frameworks/imageio_ffmpeg/binaries)
+    prefix + 재귀(깊이 4)로 탐색."""
     import sys
 
     if not getattr(sys, "frozen", False):
         return None
     base = os.path.dirname(sys.executable)
     meipass = getattr(sys, "_MEIPASS", base)
-    dirs = (base, meipass,
-            os.path.join(base, "..", "Frameworks"),
-            os.path.join(base, "..", "Resources"))
-    for d in dirs:
-        try:
-            names = os.listdir(os.path.normpath(d))
-        except OSError:
+    roots = (base, meipass,
+             os.path.join(base, "..", "Frameworks"),
+             os.path.join(base, "..", "Resources"))
+    for root in roots:
+        root = os.path.normpath(root)
+        if not os.path.isdir(root):
             continue
-        for name in sorted(names):
-            if not name.startswith("ffmpeg"):
+        for dirpath, dirnames, filenames in os.walk(root):
+            depth = os.path.relpath(dirpath, root).count(os.sep)
+            if depth > 4:
+                dirnames[:] = []
                 continue
-            p = os.path.normpath(os.path.join(d, name))
-            if os.path.isfile(p) and os.access(p, os.X_OK):
-                return p
+            for name in sorted(filenames):
+                if not name.startswith("ffmpeg"):
+                    continue
+                p = os.path.join(dirpath, name)
+                if os.access(p, os.X_OK):
+                    return p
     return None
 
 

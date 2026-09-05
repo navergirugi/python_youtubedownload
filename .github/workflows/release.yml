@@ -41,14 +41,17 @@ jobs:
         if: matrix.target == 'win'
         shell: pwsh
         run: |
-          if (-not (Get-ChildItem dist\MusicDownloader\ffmpeg*.exe)) { throw 'bundled ffmpeg missing' }
+          $f = Get-ChildItem -Recurse -Filter 'ffmpeg*.exe' dist\MusicDownloader
+          $f | Select-Object FullName
+          if (-not $f) { throw 'bundled ffmpeg missing' }
           "q" | .\dist\cli.exe
           if ($LASTEXITCODE -ne 0) { throw "cli smoke failed: $LASTEXITCODE" }
 
       - name: Smoke test (macOS)
         if: matrix.target == 'mac'
         run: |
-          (ls dist/MusicDownloader.app/Contents/MacOS/ffmpeg* 2>/dev/null; ls dist/MusicDownloader.app/Contents/Frameworks/ffmpeg* 2>/dev/null) | grep -q . || { echo 'bundled ffmpeg missing'; exit 1; }
+          find dist -iname 'ffmpeg*' | head -10
+          find dist -iname 'ffmpeg*' | grep -q . || { echo 'bundled ffmpeg missing'; exit 1; }
           printf 'q\n' | ./dist/cli
 
       - name: Package (Windows)
