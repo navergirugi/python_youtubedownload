@@ -1,12 +1,79 @@
 """YouTube search + confirm + re-search loop (yt-dlp ytsearch only)."""
 from __future__ import annotations
 
+import re
 from typing import Callable, Optional
+from urllib.parse import parse_qs, urlparse
 
 from yt_dlp import YoutubeDL
 
 import config
 from models import Candidate
+
+
+_VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,}$")
+
+
+def clean_youtube_url(url: str) -> str:
+    """단일 영상 URL로 정규화. list/start_radio 등 믹스 파라미터 제거.
+
+    watch?v=ID&list=RD... 같은 URL을 그대로 쓰면 yt-dlp가 믹스 플레이리스트
+    전체를 파고들어 멈춘 것처럼 보인다. 영상 ID가 보이면
+    https://www.youtube.com/watch?v=ID 로 정제해서 단일 영상만 다루게 한다.
+    ID를 못 찾으면 원본(strip만)을 그대로 반환한다.
+    """
+    u = (url or "").strip().strip("<>").strip()
+    if not u:
+        return u
+    try:
+        p = urlparse(u if "://" in u else "https://" + u)
+    except Exception:
+        return u
+    host = (p.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    qs = parse_qs(p.query or "")
+
+    vid = (qs.get("v") or [None])[0]
+    if vid and _VIDEO_ID_RE.match(vid):
+        return f"https://www.youtube.com/watch?v={vid}"
+
+    parts = [s for s in (p.path or "").split("/") if s]
+    if host == "youtu.be" and parts and _VIDEO_ID_RE.match(parts[0]):
+        return f"https://www.youtube.com/watch?v={parts[0]}"
+    if host in ("youtube.com", "music.youtube.com", "m.youtube.com") and len(parts) >= 2:
+        if parts[0] in ("shorts", "embed", "live", "v") and _VIDEO_ID_RE.match(parts[1]):
+            return f"https://www.youtube.com/watch?v={parts[1]}"
+    return u
+
+
+def fetch_url_meta(url: str, timeout: int = 30) -> tuple[str, str, str]:
+    """URL에서 (uploader, title, clean_url) 조회. 실패시 ('', '', clean_url).
+
+    정제된 단일 URL + noplaylist로 RD 믹스 전체 탐색을 막는다.
+    플레이리스트형 결과가 와도 첫 항목을 사용한다.
+    """
+    clean = clean_youtube_url(url)
+    try:
+        with YoutubeDL(
+            {"quiet": True, "no_warnings": True, "skip_download": True,
+             "noplaylist": True, "socket_timeout": timeout,
+             "extractor_args": {"youtube": {"player_client": ["android", "web"]}}}
+        ) as ydl:
+            info = ydl.extract_info(clean, download=False)
+        if isinstance(info, dict):
+            if info.get("_type") == "playlist":
+                entries = [e for e in (info.get("entries") or []) if e]
+                info = entries[0] if entries else {}
+            if isinstance(info, dict):
+                return (
+                    info.get("uploader") or info.get("channel") or "",
+                    info.get("title") or "",
+                    clean,
+                )
+    except Exception:
+        pass
+    return "", "", clean
 
 
 def _fmt_duration(sec: object) -> str:

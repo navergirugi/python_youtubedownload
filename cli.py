@@ -159,33 +159,22 @@ def flow_settings() -> None:
             print(f"무시됨: {e}")
 
 
-def _fetch_title(url: str) -> tuple[str, str]:
-    """URL에서 (uploader, title) 조회. 실패시 ('', '')."""
-    try:
-        from yt_dlp import YoutubeDL
+def _fetch_title(url: str) -> tuple[str, str, str]:
+    """URL에서 (uploader, title, clean_url) 조회. 실패시 ('', '', 정제 URL)."""
+    from search import fetch_url_meta
 
-        with YoutubeDL({
-            "quiet": True,
-            "no_warnings": True,
-            "skip_download": True,
-            "socket_timeout": 30,
-            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
-        }) as ydl:
-            info = ydl.extract_info(url, download=False)
-        if isinstance(info, dict):
-            return (info.get("uploader") or info.get("channel") or "", info.get("title") or "")
-    except Exception:
-        pass
-    return "", ""
+    return fetch_url_meta(url)
 
 
 def flow_url() -> None:
-    url = input("유튜브 URL: ").strip()
-    if not url:
+    raw = input("유튜브 URL: ").strip()
+    if not raw:
         return
     kind = input("다운로드 종류 (a=음원, v=영상, 엔터=음원): ").strip().lower()
     is_audio = kind in ("", "a", "audio", "음원")
-    uploader, vtitle = _fetch_title(url)
+    uploader, vtitle, url = _fetch_title(raw)
+    if url != raw:
+        print(f"단일 영상으로 정제: {url}")
     if vtitle:
         print(f"영상: {vtitle}" + (f" ({uploader})" if uploader else ""))
     artist = input(f"가수명 (엔터={uploader or '자동'}): ").strip() or uploader or "Unknown"

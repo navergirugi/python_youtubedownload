@@ -42,6 +42,8 @@ def _base_opts() -> dict:
         "fragment_retries": 3,
         "socket_timeout": 30,
         "geo_bypass": True,
+        # 믹스/RD(list=) 포함 URL이 와도 단일 영상만 받도록 강제
+        "noplaylist": True,
         "nocheckcertificate": False,
         "http_headers": {
             "User-Agent": (

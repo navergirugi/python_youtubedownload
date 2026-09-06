@@ -386,10 +386,15 @@ class UrlTab(QWidget):
             self.quality.setCurrentText(config.DEFAULT_VIDEO_QUALITY)
 
     def on_download(self):
-        url = self.url.text().strip()
-        if not url:
+        raw = self.url.text().strip()
+        if not raw:
             QMessageBox.warning(self, "입력", "URL을 입력하세요.")
             return
+        from search import clean_youtube_url
+
+        url = clean_youtube_url(raw)
+        if url != raw:
+            self.log_fn(f"단일 영상으로 정제: {url}")
         is_audio = self.kind.currentText().startswith("음원")
         q = self.quality.currentText()
         a, t = self.artist.text().strip(), self.title.text().strip()

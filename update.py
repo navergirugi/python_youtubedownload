@@ -1,6 +1,7 @@
 """무서버 강제 업데이트 체크 (GitHub raw version.json을 서버처럼 사용)."""
 from __future__ import annotations
 
+import os
 import sys
 import time
 import webbrowser
@@ -34,7 +35,10 @@ def check_update() -> tuple[bool, bool, dict]:
     - current < min_required → 강제 (실행 차단)
     - min_required <= current < latest → 선택
     - 네트워크 실패/파싱 실패 → (False, False, {}) : 오프라인 실행 보장
+    - SKIP_UPDATE_CHECK=1 환경변수 → (False, False, {}) : 로컬 테스트용 우회
     """
+    if os.environ.get("SKIP_UPDATE_CHECK") == "1":
+        return False, False, {}
     try:
         info = fetch_remote_info()
         cur = parse_version(config.APP_VERSION)
