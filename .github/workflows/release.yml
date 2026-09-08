@@ -40,7 +40,7 @@ jobs:
           p = "config.py"
           s = open(p, encoding="utf-8").read()
           s2 = re.sub(r'APP_VERSION = "[^"]+"', f'APP_VERSION = "{ver}"', s, count=1)
-          assert s2 != s, "APP_VERSION pattern not found"
+          assert re.search(r'APP_VERSION = "[^"]+"', s), "APP_VERSION pattern not found"
           open(p, "w", encoding="utf-8").write(s2)
           print("APP_VERSION ->", ver)
           EOF
