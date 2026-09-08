@@ -12,6 +12,16 @@ from models import Candidate
 
 
 _VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,}$")
+_URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+
+
+def extract_youtube_url(text: str) -> str:
+    """붙여넣은 텍스트에서 유튜브 영상 URL만 뽑아 정제. 없으면 ''."""
+    m = _URL_RE.search(text or "")
+    if not m:
+        return ""
+    u = clean_youtube_url(m.group(0).rstrip(".,;:!?)"))
+    return u if u.startswith("https://www.youtube.com/watch?v=") else ""
 
 
 def clean_youtube_url(url: str) -> str:

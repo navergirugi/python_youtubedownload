@@ -109,6 +109,6 @@ app = BUNDLE(
     bundle_identifier='com.local.musicdownloader',
     info_plist={
         'NSHighResolutionCapable': 'True',
-        'CFBundleShortVersionString': '1.0.4',
+        'CFBundleShortVersionString': '1.0.13',
     },
 )

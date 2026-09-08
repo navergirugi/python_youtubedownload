@@ -146,12 +146,12 @@ def flow_settings() -> None:
         print(f"영상 저장: {config.set_video_dir(v)}")
     if not a and not v:
         print("변경 없음.")
-    names = {"top100": "TOP100", "audio": "음원", "video": "영상"}
+    names = {"top100": "TOP100", "audio": "음원", "video": "영상", "url": "URL직접"}
     cur = config.get_menu_order()
-    print(f"현재 1~3번 순서: {' '.join(names[k] for k in cur)} (4=URL직접, 5=저장위치는 고정)")
-    o = input("새 순서 (예: 2 3 1, 엔터=유지): ").strip()
+    print(f"현재 순서: {' '.join(names[k] for k in cur)} (5=저장위치는 고정)")
+    o = input("새 순서 (예: 2 4 1 3, 엔터=유지): ").strip()
     if o:
-        keys = [["top100", "audio", "video"][int(d) - 1] for d in o if d in "123"]
+        keys = [["top100", "audio", "video", "url"][int(d) - 1] for d in o if d in "1234"]
         try:
             new = config.set_menu_order(keys)
             print(f"순서 저장: {' '.join(names[k] for k in new)}")
@@ -170,6 +170,13 @@ def flow_url() -> None:
     raw = input("유튜브 URL: ").strip()
     if not raw:
         return
+    from search import extract_youtube_url
+
+    probe = extract_youtube_url(raw)
+    if not probe:
+        print("유튜브 영상 URL을 붙여넣으세요.")
+        return
+    raw = probe
     kind = input("다운로드 종류 (a=음원, v=영상, 엔터=음원): ").strip().lower()
     is_audio = kind in ("", "a", "audio", "음원")
     uploader, vtitle, url = _fetch_title(raw)
@@ -225,6 +232,7 @@ def _mode_actions():
         "top100": ("멜론 TOP100 전체 음원", flow_top100),
         "audio": ("음원(MP3)", _audio),
         "video": ("영상(MP4)", _video),
+        "url": ("URL직접", flow_url),
     }
 
 
@@ -241,6 +249,12 @@ def main() -> None:
         return
     if need:
         print(f"[업데이트 알림] {update.format_notice(info)}")
+        sel = input("지금 다운로드 페이지로 열까요? (y=열기, n=나중에, s=이 버전 다시 묻지 않기, 엔터=n): ").strip().lower()
+        if sel in ("y", "yes"):
+            update.open_release_page(info)
+        elif sel in ("s", "skip"):
+            update.mark_skipped(info)
+            print(f"v{info.get('latest')} 다시 묻지 않기로 설정 (설정 초기화로 해제 가능).")
     if not info:
         print("업데이트 확인 실패: 네트워크 문제로 최신 버전을 확인하지 못했습니다.")
     print("=" * 60)
@@ -252,14 +266,12 @@ def main() -> None:
         actions = _mode_actions()
         labels = {str(i + 1): key for i, key in enumerate(order)}
         menu = " / ".join(f"{i + 1}={actions[k][0]}" for i, k in enumerate(order))
-        print(f" 메뉴: {menu} / 4=URL직접 / 5=저장위치")
+        print(f" 메뉴: {menu} / 5=저장위치")
         sel = input("선택 (1/2/3/4/5, q=종료): ").strip().lower()
         if sel in ("q", ""):
             break
         if sel in labels:
             actions[labels[sel]][1]()
-        elif sel == "4":
-            flow_url()
         elif sel == "5":
             flow_settings()
         else:

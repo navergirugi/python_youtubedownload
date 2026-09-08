@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import tempfile
 
@@ -11,12 +12,42 @@ import config
 import naming
 
 
+def progress_percent(d: dict) -> float:
+    """yt-dlp progress dict → 0~100. total 미상이면 0."""
+    if d.get("status") == "finished":
+        return 100.0
+    total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+    done = d.get("downloaded_bytes") or 0
+    if not total:
+        return 0.0
+    return max(0.0, min(100.0, done / total * 100.0))
+
+
+def _safe_write(msg: str) -> None:
+    if sys.stdout is not None:  # 창모드 exe(stdout=None) 크래시 방지
+        try:
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+
 def _progress_hook(d: dict) -> None:
     if d.get("status") == "downloading":
-        sys.stdout.write(f"\r다운로드 중... {d.get('_percent_str', '0%')}          ")
-        sys.stdout.flush()
+        _safe_write(f"\r다운로드 중... {d.get('_percent_str', '0%')}          ")
     elif d.get("status") == "finished":
-        print("\n변환 중...")
+        _safe_write("\n변환 중...\n")
+
+
+def _make_hook(cb) -> callable:
+    def _hook(d: dict) -> None:
+        _progress_hook(d)
+        if cb is not None:
+            try:
+                cb(progress_percent(d))
+            except Exception:
+                pass
+    return _hook
 
 
 def _ffmpeg_location() -> str | None:
@@ -33,11 +64,11 @@ def _ffmpeg_location() -> str | None:
     return d or None
 
 
-def _base_opts() -> dict:
+def _base_opts(on_progress=None) -> dict:
     opts = {
         "quiet": True,
         "no_warnings": True,
-        "progress_hooks": [_progress_hook],
+        "progress_hooks": [_make_hook(on_progress)],
         "retries": 3,
         "fragment_retries": 3,
         "socket_timeout": 30,
@@ -63,7 +94,6 @@ def _base_opts() -> dict:
 
 def normalize_loudness(path: str, bitrate: str) -> None:
     """EBU R128 single-pass로 음량을 평준화합니다 (in-place). 핸드폰 재생시 곡간 음량차를 없애는 용도."""
-    import shutil
     import subprocess
 
     ffmpeg = config.check_ffmpeg()
@@ -74,7 +104,10 @@ def normalize_loudness(path: str, bitrate: str) -> None:
         "-ar", "44100", "-b:a", f"{bitrate}k",
         tmp_out,
     ]
-    r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
+    r = subprocess.run(
+        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600,
+        **({"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}),
+    )
     if r.returncode != 0 or not os.path.exists(tmp_out):
         if os.path.exists(tmp_out):
             os.remove(tmp_out)
@@ -82,7 +115,7 @@ def normalize_loudness(path: str, bitrate: str) -> None:
     shutil.move(tmp_out, path)
 
 
-def download_audio(url: str, artist: str, title: str, bitrate: str = config.DEFAULT_AUDIO_BITRATE, normalize: bool = True) -> str:
+def download_audio(url: str, artist: str, title: str, bitrate: str = config.DEFAULT_AUDIO_BITRATE, normalize: bool = True, on_progress=None) -> str:
     if bitrate not in config.AUDIO_BITRATES:
         raise ValueError(f"지원하지 않는 비트레이트: {bitrate} (가능: {', '.join(config.AUDIO_BITRATES)})")
     config.ensure_dirs()
@@ -91,7 +124,7 @@ def download_audio(url: str, artist: str, title: str, bitrate: str = config.DEFA
     final = naming.unique_path(config.get_audio_dir(), base, ".mp3")
     tmp = tempfile.mkdtemp(prefix="mdl_audio_")
     opts = {
-        **_base_opts(),
+        **_base_opts(on_progress),
         "format": "bestaudio/best",
         "outtmpl": os.path.join(tmp, "%(title)s.%(ext)s"),
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": bitrate}],
@@ -107,15 +140,15 @@ def download_audio(url: str, artist: str, title: str, bitrate: str = config.DEFA
             raise RuntimeError("다운로드된 파일이 없습니다.")
         mp3s = files
     src = max(mp3s, key=os.path.getsize)
-    os.rename(src, final)
+    shutil.move(src, final)
     if normalize:
-        print("음량 평준화 중... (EBU R128)")
+        _safe_write("음량 평준화 중... (EBU R128)\n")
         normalize_loudness(final, bitrate)
     _tag_mp3(final, artist, title)
     return final
 
 
-def download_video(url: str, artist: str, title: str, quality: str = config.DEFAULT_VIDEO_QUALITY) -> str:
+def download_video(url: str, artist: str, title: str, quality: str = config.DEFAULT_VIDEO_QUALITY, on_progress=None) -> str:
     if quality not in config.VIDEO_FORMATS:
         raise ValueError(f"지원하지 않는 화질: {quality} (가능: {', '.join(config.VIDEO_FORMATS)})")
     config.ensure_dirs()
@@ -124,7 +157,7 @@ def download_video(url: str, artist: str, title: str, quality: str = config.DEFA
     final = naming.unique_path(config.get_video_dir(), base, ".mp4")
     tmp = tempfile.mkdtemp(prefix="mdl_video_")
     opts = {
-        **_base_opts(),
+        **_base_opts(on_progress),
         "format": config.VIDEO_FORMATS[quality],
         "merge_output_format": "mp4",
         "outtmpl": os.path.join(tmp, "%(title)s.%(ext)s"),
@@ -138,7 +171,7 @@ def download_video(url: str, artist: str, title: str, quality: str = config.DEFA
     # ensure mp4 extension
     if not final.lower().endswith(".mp4"):
         final += ".mp4"
-    os.rename(src, final)
+    shutil.move(src, final)
     return final
 
 

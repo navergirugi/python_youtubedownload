@@ -29,11 +29,23 @@ def fetch_remote_info() -> dict:
     return d if isinstance(d, dict) else {}
 
 
+def is_skipped(info: dict) -> bool:
+    latest = str(info.get("latest", ""))
+    return bool(latest) and latest == config.get_skipped_version()
+
+
+def mark_skipped(info: dict) -> str:
+    latest = str(info.get("latest", ""))
+    if latest:
+        config.set_skipped_version(latest)
+    return latest
+
+
 def check_update() -> tuple[bool, bool, dict]:
     """(업데이트 필요, 강제 여부, 원격 정보) 반환.
 
-    - current < min_required → 강제 (실행 차단)
-    - min_required <= current < latest → 선택
+    - current < min_required → 강제 (실행 차단, 스킵 무시)
+    - min_required <= current < latest → 선택 (스킵한 버전이면 need=False로 숨김)
     - 네트워크 실패/파싱 실패 → (False, False, {}) : 오프라인 실행 보장
     - SKIP_UPDATE_CHECK=1 환경변수 → (False, False, {}) : 로컬 테스트용 우회
     """
@@ -47,7 +59,10 @@ def check_update() -> tuple[bool, bool, dict]:
         if cur < minimum:
             return True, True, info
         if cur < latest:
+            if is_skipped(info):
+                return False, False, info
             return True, False, info
+        config.clear_skipped_version()
         return False, False, info
     except Exception as e:
         if sys.stderr is not None:

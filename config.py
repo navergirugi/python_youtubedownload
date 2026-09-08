@@ -11,7 +11,7 @@ DATA_AUDIO = os.path.join(DATA_DIR, "audio")
 DATA_VIDEO = os.path.join(DATA_DIR, "video")
 
 # 앱 버전 + 무서버 업데이트 확인용 (GitHub raw version.json을 서버처럼 사용)
-APP_VERSION = "1.0.12"
+APP_VERSION = "1.0.13"
 UPDATE_URL = (
     "https://raw.githubusercontent.com/navergirugi/python_youtubedownload"
     "/master/version.json"
@@ -104,13 +104,32 @@ def reset_dirs() -> None:
     _save_settings(d)
 
 
-# 1~3번 메뉴 (URL직접/설정은 뒤에 고정)
+def get_skipped_version() -> str:
+    v = _load_settings().get("skipped_version")
+    return str(v) if v else ""
+
+
+def set_skipped_version(version: str) -> str:
+    d = _load_settings()
+    d["skipped_version"] = str(version)
+    _save_settings(d)
+    return str(version)
+
+
+def clear_skipped_version() -> None:
+    d = _load_settings()
+    d.pop("skipped_version", None)
+    _save_settings(d)
+
+
+# 메뉴 순서 (설정은 GUI 맨 위 고정, 저장 안 함)
 MENU_MODES = (
     ("top100", "멜론 TOP100"),
     ("audio", "음원(MP3)"),
     ("video", "영상(MP4)"),
+    ("url", "URL직접"),
 )
-DEFAULT_MENU_ORDER = ["top100", "audio", "video"]
+DEFAULT_MENU_ORDER = ["top100", "audio", "video", "url"]
 
 
 def get_menu_order() -> list[str]:
@@ -118,13 +137,15 @@ def get_menu_order() -> list[str]:
     order = _load_settings().get("menu_order")
     if isinstance(order, list) and sorted(order) == sorted(keys):
         return list(order)
+    if isinstance(order, list) and sorted(order) == sorted(["top100", "audio", "video"]):
+        return list(order) + ["url"]  # 구버전 저장 마이그레이션
     return list(DEFAULT_MENU_ORDER)
 
 
 def set_menu_order(order: list[str]) -> list[str]:
     keys = [k for k, _ in MENU_MODES]
     if sorted(order) != sorted(keys):
-        raise ValueError(f"1,2,3번을 중복 없이 모두 지정하세요 (예: 2 3 1)")
+        raise ValueError(f"1~{len(keys)}번을 중복 없이 모두 지정하세요 (예: 2 4 1 3)")
     d = _load_settings()
     d["menu_order"] = list(order)
     _save_settings(d)

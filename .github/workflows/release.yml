@@ -7,6 +7,10 @@ on:
         description: '릴리즈 태그 (예: v1.0.1)'
         required: true
         default: 'v1.0.0'
+      force:
+        description: '강제 업데이트 (true면 min_required도 올림, 아니면 선택 업데이트)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -113,14 +117,24 @@ jobs:
         run: |
           TAG="${{ inputs.tag }}"
           VER="${TAG#v}"
-          python - "$VER" "$TAG" <<'EOF'
+          FORCE="${{ inputs.force }}"
+          python - "$VER" "$TAG" "$FORCE" <<'EOF'
           import json, sys
-          ver, tag = sys.argv[1], sys.argv[2]
+          ver, tag, force = sys.argv[1], sys.argv[2], sys.argv[3]
+          try:
+              with open("version.json", encoding="utf-8") as f:
+                  prev = json.load(f)
+          except Exception:
+              prev = {}
+          minimum = ver if force == "true" else prev.get("min_required", ver)
           d = {
             "latest": ver,
-            "min_required": ver,
+            "min_required": minimum,
             "url": f"https://github.com/navergirugi/python_youtubedownload/releases/tag/{tag}",
-            "notes": f"v{ver} 필수 업데이트. 구버전은 실행이 차단됩니다.",
+            "notes": (
+              f"v{ver} 필수 업데이트. 구버전은 실행이 차단됩니다."
+              if force == "true" else f"v{ver} 선택 업데이트가 있습니다."
+            ),
           }
           with open("version.json", "w", encoding="utf-8") as f:
             json.dump(d, f, ensure_ascii=False, indent=2)

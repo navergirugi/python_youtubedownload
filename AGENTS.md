@@ -63,3 +63,30 @@ pyinstaller --onefile cli.py      # CLI 단일파일
 
 ## DELETE (legacy, 사용중지)
 `extractor.py`, `audio_identify.py`, `_shazam_helper.py`, `organize_data.py`, `fix_*.py`, `test_*.py(legacy)`, `metadata.json`, `.gemini_profile/`, `app.py`(구 GUI) — `singer.txt`는 무시.
+
+[Core Principles & Standards]
+
+1. UI/UX 및 디자인 시스템 스탠다드
+ - 색상 시스템: 단순 원색 대신 시맨틱 컬러(Semantic Color)와 가독성 높은 톤(oklch, HSL, Slate 등)을 사용한다.
+   - 성공/안정: Green 계열
+   - 경고/주의: Yellow/Orange/Brown 계열 (예: oklch 베이지/갈색 톤)
+   - 에러/위험: Red 계열
+   - 정보/알림: Blue/Indigo 계열
+ - 아이콘 체계: `lucide-react` 라이브러리를 기준 글로벌 표준 아이콘을 사용한다.
+   - 대시보드(Home), 캠페인(Megaphone), 예약(Calendar), 문의/소통(MessageSquare/Headphones), 설정(Settings), 도움말(HelpCircle)
+ - 상태 보존 및 Auto-save:
+   - 단발성 설정(알림, 다크모드 등)은 [저장] 버튼 없이 즉시 비동기 자동 저장되는 '토글 스위치(Toggle Switch)' 방식을 우선 채택한다.
+   - 텍스트 입력의 경우 Debounce 기법을 적용하며, 시각적 상태(저장 중..., 저장됨) 피드백을 제공한다.
+
+2. Tailwind CSS 작성 규칙
+ - 임의 값(Arbitrary values) 활용: 디테일한 색상 및 모서리 값은 대괄호 문법을 활용한다. (예: `text-[#7e4600]`, `bg-[oklch(0.97_0.03_80)]`, `rounded-[10px]`)
+ - 대괄호 내 공백 처리: 대괄호 안에서 띄어쓰기는 반드시 언더바(`_`)로 대체한다. (예: `p-[12px_14px]`)
+ - 투명도 연출: 색상 뒤에 슬래시와 숫자를 붙여 세밀하게 조절한다. (예: `text-[#7e4600]/80`)
+ - 그리드 및 반응형 레이아웃: 
+   - 12컬럼 또는 4컬럼 그리드를 기본으로 활용하며 `col-span-X`를 이용해 화면을 유연하게 분할한다. (예: 1칸/3칸 분할 시 `grid-cols-4`에 `col-span-3` 적용)
+
+3. 코드 작성 및 답변 형식
+ - 코드 제시 시 필수 라이브러리의 `import` 구문을 명확히 포함한다.
+ - HTML 스타일을 React + Tailwind로 변환할 경우, 색상/패딩/폰트 크기/행간/아이콘을 1:1로 정확하게 매칭한다.
+ - 코드 제공 후에는 [주요 변경 포인트] 및 [디자인 의도]를 bullet point로 명확하게 요약 해설한다.
+ - 아이콘 제안 시 메뉴의 의도(소통, 수신, 단순 문의 등)에 맞는 2~3가지 최적의 대안과 이유를 함께 제시한다.
