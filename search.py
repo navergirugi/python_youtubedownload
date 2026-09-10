@@ -86,6 +86,14 @@ def fetch_url_meta(url: str, timeout: int = 30) -> tuple[str, str, str]:
     return "", "", clean
 
 
+def _parse_duration_sec(sec: object) -> int | None:
+    try:
+        s = int(float(sec))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return s if s >= 0 else None
+
+
 def _fmt_duration(sec: object) -> str:
     try:
         s = int(float(sec))  # type: ignore[arg-type]
@@ -121,6 +129,7 @@ def youtube_search(query: str, n: int = config.YTSEARCH_N) -> list[Candidate]:
                 url=url,
                 channel=e.get("channel") or e.get("uploader") or "",
                 duration_str=_fmt_duration(e.get("duration")),
+                duration_sec=_parse_duration_sec(e.get("duration")),
             )
         )
     return out

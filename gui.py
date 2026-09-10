@@ -7,8 +7,8 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PySide6.QtCore import QThread, Signal, Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QThread, Signal, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -20,10 +20,12 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QProgressBar,
+    QSplitter,
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -67,10 +69,13 @@ QComboBox { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; 
 QComboBox:hover { border-color: #2563eb; background: white; }
 QComboBox:focus { border-color: #2563eb; background: white; }
 QComboBox::drop-down { border: none; border-left: 1px solid #e2e8f0; width: 28px; }
+{COMBO_ARROW_RULE}
 QComboBox QAbstractItemView { background: white; color: #1e293b; selection-background-color: #dbeafe; selection-color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; }
 QComboBox QAbstractItemView::item { padding: 7px 10px; min-height: 24px; }
 QComboBox QAbstractItemView::item:selected { background: #dbeafe; }
-QTableWidget { background: white; border: 1px solid #dbe1ea; border-radius: 8px; color: #1e293b; gridline-color: #eef1f6; selection-background-color: #dbeafe; selection-color: #0f172a; }
+QTableWidget { background: white; border: 1px solid #dbe1ea; border-radius: 8px; color: #1e293b; gridline-color: #eef1f6; selection-background-color: #2563eb; selection-color: white; }
+QTableWidget::item:selected { background: #2563eb; color: white; }
+QTableWidget::item:selected:!active { background: #2563eb; color: white; }
 QHeaderView::section { background: #f1f5f9; color: #334155; padding: 7px; border: none; font-weight: 700; }
 QPlainTextEdit#log { background: #0f172a; color: #e2e8f0; border-radius: 10px; border: 1px solid #1e293b; }
 QProgressBar { background: #e2e8f0; border: none; border-radius: 6px; min-height: 12px; text-align: center; color: #0f172a; }
@@ -82,6 +87,20 @@ QMessageBox QLabel { color: #1e293b; }
 
 
 _THREADS: list[QThread] = []
+
+
+def _combo_arrow_rule() -> str:
+    base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+    cands = [
+        os.path.join(base, "assets", "chevron-down.png"),
+        os.path.join(getattr(sys, "_MEIPASS", base), "assets", "chevron-down.png"),
+        os.path.join(base, "..", "Resources", "assets", "chevron-down.png"),
+    ]
+    for p in cands:
+        if os.path.isfile(p):
+            uri = os.path.abspath(p).replace("\\", "/")
+            return f'QComboBox::down-arrow {{ image: url("{uri}"); width: 14px; height: 14px; }}'
+    return ""
 
 MENU_LABELS = {"top100": "멜론 TOP100", "audio": "음원 (MP3)", "video": "영상 (MP4)"}
 _URL_LABEL = "URL 직접"
@@ -149,10 +168,11 @@ def _set_status_label(label, text: str, ok: bool | None) -> None:
 
 def _autosize_table(table: QTableWidget, stretch_col: int = 0, max_width: int = 420,
                     fixed_cols: tuple[int, ...] = ()) -> None:
-    """컬럼 너비 자동 조절: 내용 기준 + 제목열은 stretch로 남는 공간 흡수.
+    """컬럼 초기 너비는 내용 기준, 이후 전 컬럼 드래그 조절 가능.
 
-    fixed_cols는 내용폭(ResizeToContents)으로 고정 → 짧은 값(가수/상태/길이)은
-    작게, stretch_col(제목)이 나머지 100%를 흡수.
+    stretch_col/fixed_cols는 초기 너비 힌트용으로만 유지하고, 실제 리사이즈
+    모드는 전 컬럼 Interactive + 마지막 컬럼 stretch로 통일한다.
+    (Stretch/ResizeToContents 섹션은 드래그가 안 되기 때문)
     """
     table.resizeColumnsToContents()
     header = table.horizontalHeader()
@@ -161,10 +181,7 @@ def _autosize_table(table: QTableWidget, stretch_col: int = 0, max_width: int = 
         if w > max_width:
             table.setColumnWidth(c, max_width)
     header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-    for c in fixed_cols:
-        header.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
-    header.setSectionResizeMode(stretch_col, QHeaderView.ResizeMode.Stretch)
-    header.setStretchLastSection(False)
+    header.setStretchLastSection(True)
 
 
 def _fill_table(table: QTableWidget, cands: list[Candidate]) -> None:
@@ -174,8 +191,114 @@ def _fill_table(table: QTableWidget, cands: list[Candidate]) -> None:
             item = QTableWidgetItem(val)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # read-only
             item.setToolTip(val)
+            if col == 2:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if col == 3:
+                item.setForeground(QColor("#1d4ed8"))
+                item.setToolTip(f"{val}\n더블클릭: 브라우저 열기 / 우클릭: 복사")
             table.setItem(r, col, item)
     _autosize_table(table, stretch_col=0)
+
+
+DUR_MIN_OPTIONS = ("제한 없음", "1분", "3분", "5분", "10분", "20분", "30분", "40분")
+DUR_MAX_OPTIONS = ("5분", "10분", "20분", "30분", "40분", "60분", "제한 없음")
+
+
+def _dur_to_sec(label: str) -> int | None:
+    label = (label or "").strip()
+    if label in ("", "제한 없음"):
+        return None
+    try:
+        return int(float(label.replace("분", "").strip())) * 60
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_sec_fallback(duration_str: str) -> int | None:
+    try:
+        parts = [int(x) for x in (duration_str or "").split(":")]
+        sec = 0
+        for p in parts:
+            sec = sec * 60 + p
+        return sec
+    except (ValueError, TypeError):
+        return None
+
+
+def _match_duration_range(c: Candidate, min_sec: int | None, max_sec: int | None) -> bool:
+    if min_sec is None and max_sec is None:
+        return True
+    sec = c.duration_sec
+    if sec is None:
+        sec = _parse_sec_fallback(c.duration_str)
+    if sec is None:
+        return True
+    if min_sec is not None and sec < min_sec:
+        return False
+    if max_sec is not None and sec > max_sec:
+        return False
+    return True
+
+
+def _open_folder(path: str) -> bool:
+    folder = path if os.path.isdir(path) else (os.path.dirname(path) or path)
+    if not folder or not os.path.exists(folder):
+        return False
+    QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.abspath(folder)))
+    return True
+
+
+def _ask_open_folder(parent: QWidget, path: str, log_fn=None) -> None:
+    folder = path if os.path.isdir(path) else (os.path.dirname(path) or path)
+    if not folder or not os.path.exists(folder):
+        return
+    ok = QMessageBox.question(
+        parent, "다운로드 완료",
+        f"완료: {path}\n\n해당 폴더를 열어 보시겠어요?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+    )
+    if ok == QMessageBox.StandardButton.Yes:
+        if not _open_folder(folder) and log_fn:
+            log_fn(f"폴더 열기 실패: {folder}")
+
+
+def _table_url_at(table: QTableWidget, row: int) -> str:
+    item = table.item(row, 3) if table.columnCount() >= 4 else None
+    return item.text().strip() if item else ""
+
+
+def _table_context_menu(table: QTableWidget, pos) -> None:
+    row = table.rowAt(pos.y())
+    if row < 0:
+        return
+    table.selectRow(row)
+    url = _table_url_at(table, row)
+    if not url:
+        return
+    menu = QMenu(table)
+    copy_act = menu.addAction("URL 복사")
+    open_act = menu.addAction("브라우저에서 열기")
+    chosen = menu.exec(table.viewport().mapToGlobal(pos))
+    if chosen == copy_act:
+        QApplication.clipboard().setText(url)
+    elif chosen == open_act:
+        QApplication.clipboard().setText(url)
+        QDesktopServices.openUrl(QUrl(url))
+
+
+def _on_table_double_click(table: QTableWidget, row: int, col: int) -> None:
+    if col != 3:
+        return
+    url = _table_url_at(table, row)
+    if url:
+        QApplication.clipboard().setText(url)
+        QDesktopServices.openUrl(QUrl(url))
+
+
+def _wire_table_copy_open(table: QTableWidget) -> None:
+    table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+    table.customContextMenuRequested.connect(lambda pos: _table_context_menu(table, pos))
+    table.cellDoubleClicked.connect(lambda r, c: _on_table_double_click(table, r, c))
 
 
 class SearchWorker(QThread):
@@ -203,8 +326,10 @@ class SearchTab(QWidget):
         super().__init__()
         self.mode = mode  # 'audio' | 'video'
         self.log_fn = log_fn
+        self.all_cands: list[Candidate] = []
         self.cands: list[Candidate] = []
         self.worker = None
+        self._dl_busy = False
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -218,6 +343,21 @@ class SearchTab(QWidget):
         row.addWidget(self.title, 1)
         row.addWidget(self.search_btn)
         layout.addLayout(row)
+
+        frow = QHBoxLayout()
+        frow.addWidget(QLabel("길이:"))
+        self.dur_min = QComboBox()
+        self.dur_min.addItems(list(DUR_MIN_OPTIONS))
+        self.dur_min.currentTextChanged.connect(lambda _: self._apply_duration_filter())
+        frow.addWidget(self.dur_min)
+        frow.addWidget(QLabel("~"))
+        self.dur_max = QComboBox()
+        self.dur_max.addItems(list(DUR_MAX_OPTIONS))
+        self.dur_max.setCurrentText("제한 없음")
+        self.dur_max.currentTextChanged.connect(lambda _: self._apply_duration_filter())
+        frow.addWidget(self.dur_max)
+        frow.addStretch(1)
+        layout.addLayout(frow)
 
         qrow = QHBoxLayout()
         qrow.addWidget(QLabel("음원 비트레이트:" if mode == "audio" else "영상 화질:"))
@@ -239,7 +379,9 @@ class SearchTab(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         _autosize_table(self.table, stretch_col=0)
+        _wire_table_copy_open(self.table)
         layout.addWidget(self.table, 1)
+        self.table.itemSelectionChanged.connect(self._refresh_dl_btn)
 
         btn_row = QHBoxLayout()
         self.sync_btn = QPushButton("🔍 검색 실행 (표 채우기)")
@@ -260,6 +402,7 @@ class SearchTab(QWidget):
 
         self.dl_btn = QPushButton("⬇️ 선택 행 확정 & 다운로드")
         self.dl_btn.clicked.connect(self.on_download)
+        self.dl_btn.setEnabled(False)
         layout.addWidget(self.dl_btn)
         self.dl_bar = QProgressBar()
         self.dl_bar.setRange(0, 100)
@@ -291,11 +434,44 @@ class SearchTab(QWidget):
         self._search_worker.failed.connect(self._on_search_failed)
         self._search_worker.start()
 
-    def _on_search_found(self, cands):
-        self.cands = cands
+    def _dur_range(self) -> tuple[int | None, int | None]:
+        return _dur_to_sec(self.dur_min.currentText()), _dur_to_sec(self.dur_max.currentText())
+
+    def _dur_label(self) -> str:
+        lo, hi = self.dur_min.currentText(), self.dur_max.currentText()
+        if lo.startswith("제한") and hi.startswith("제한"):
+            return "전체"
+        return f"{lo} ~ {hi}"
+
+    def _apply_duration_filter(self, log: bool = False) -> None:
+        lo, hi = self._dur_range()
+        if lo is not None and hi is not None and lo > hi:
+            lo, hi = hi, lo
+        self.cands = [c for c in self.all_cands if _match_duration_range(c, lo, hi)]
+        had_rows = self.table.rowCount() > 0
+        widths = [self.table.columnWidth(c) for c in range(self.table.columnCount())] if had_rows else None
         _fill_table(self.table, self.cands)
-        self._set_searching(False, f"{len(self.cands)}건 표시. 표에서 행 선택 → URL 확인 후 다운로드.")
-        self.log_fn(f"{len(self.cands)}건 표시. 표에서 행 선택 → URL 확인 후 다운로드.")
+        if widths:
+            for c, w in enumerate(widths):
+                self.table.setColumnWidth(c, w)
+        self.table.clearSelection()
+        self._refresh_dl_btn()
+        if log:
+            self.log_fn(f"길이 필터 '{self._dur_label()}': {len(self.cands)}건 (전체 {len(self.all_cands)}건)")
+
+    def _refresh_dl_btn(self) -> None:
+        if self._dl_busy:
+            self.dl_btn.setEnabled(False)
+            return
+        r = self.table.currentRow()
+        self.dl_btn.setEnabled(bool(self.table.selectedItems()) and 0 <= r < len(self.cands))
+
+    def _on_search_found(self, cands):
+        self.all_cands = cands
+        self._apply_duration_filter()
+        label = self._dur_label()
+        self._set_searching(False, f"{len(self.cands)}건 표시 (전체 {len(self.all_cands)}건, 길이: {label}). 행 선택 → 우클릭 URL 복사/열기 → 다운로드.")
+        self.log_fn(f"{len(self.cands)}건 표시 (전체 {len(self.all_cands)}건, 길이: {label}). 표에서 행 선택 → URL 확인 후 다운로드.")
 
     def _on_search_failed(self, msg):
         self._set_searching(False, f"검색 실패: {msg}")
@@ -305,22 +481,22 @@ class SearchTab(QWidget):
         self.on_search()
 
     def on_more(self):
-        if not self.cands:
+        if not self.all_cands:
             self.log_fn("먼저 검색을 실행하세요.")
             return
         q = self._query()
         self.log_fn(f"추가 검색 중: {q} ...")
         self._set_searching(True, f"추가 검색 중: {q} ...")
-        self._more_worker = SearchWorker(q, n=len(self.cands) + MORE_STEP)
+        self._more_worker = SearchWorker(q, n=len(self.all_cands) + MORE_STEP)
         self._more_worker.found.connect(self._on_more_found)
         self._more_worker.failed.connect(self._on_more_failed)
         self._more_worker.start()
 
     def _on_more_found(self, cands):
-        merged = merge_candidates(self.cands, cands)
-        added = len(merged) - len(self.cands)
-        self.cands = merged
-        _fill_table(self.table, self.cands)
+        merged = merge_candidates(self.all_cands, cands)
+        added = len(merged) - len(self.all_cands)
+        self.all_cands = merged
+        self._apply_duration_filter()
         self._set_searching(False)
         if added:
             self.search_status.setText(f"{added}건 추가 (전체 {len(self.cands)}건)")
@@ -348,7 +524,8 @@ class SearchTab(QWidget):
         if ok != QMessageBox.StandardButton.Yes:
             self.log_fn("컨펌 거부 → 검색어 수정 후 재검색하세요.")
             return
-        self.dl_btn.setEnabled(False)
+        self._dl_busy = True
+        self._refresh_dl_btn()
         self.dl_bar.setValue(0)
         self._set_dl_status("다운로드 중...", None)
 
@@ -367,11 +544,13 @@ class SearchTab(QWidget):
         _set_status_label(self.dl_status, text, ok)
 
     def _on_dl_done(self, ok: bool, msg: str) -> None:
-        self.dl_btn.setEnabled(True)
+        self._dl_busy = False
+        self._refresh_dl_btn()
         if ok:
             self.dl_bar.setValue(100)
             self._set_dl_status(f"완료: {msg}", True)
             self.log_fn(f"완료: {msg}")
+            _ask_open_folder(self, msg, self.log_fn)
         else:
             self._set_dl_status(f"실패: {msg}", False)
             self.log_fn(f"실패: {msg}")
@@ -546,6 +725,7 @@ class Top100Tab(QWidget):
             self.top_bar.setValue(100)
             self._set_top_status(msg, True)
             self.log_fn(msg)
+            _ask_open_folder(self, config.get_audio_dir(), self.log_fn)
         else:
             self._set_top_status(f"실패: {msg}", False)
             self.log_fn(f"실패: {msg}")
@@ -700,6 +880,7 @@ class UrlTab(QWidget):
             self.dl_bar.setValue(100)
             self._set_url_status(f"완료: {msg}", True)
             self.log_fn(f"완료: {msg}")
+            _ask_open_folder(self, msg, self.log_fn)
         else:
             self._set_url_status(f"실패: {msg}", False)
             self.log_fn(f"실패: {msg}")
@@ -709,10 +890,19 @@ class UrlTab(QWidget):
 class SettingsTab(QWidget):
     """5번: 음원/영상 저장 위치 설정 (~/.musicdownloader.json에 유지)."""
 
+    back_requested = Signal()
+
     def __init__(self, log_fn):
         super().__init__()
         self.log_fn = log_fn
         layout = QVBoxLayout(self)
+        top = QHBoxLayout()
+        self.back_btn = QPushButton("← 돌아가기")
+        self.back_btn.setObjectName("ghost")
+        self.back_btn.clicked.connect(self.back_requested.emit)
+        top.addWidget(self.back_btn)
+        top.addStretch(1)
+        layout.addLayout(top)
         layout.addWidget(QLabel("저장 위치 (비워두면 기본 data/ 폴더 사용)"))
         for label, attr in (("음원 폴더:", "audio"), ("영상 폴더:", "video")):
             row = QHBoxLayout()
@@ -909,7 +1099,7 @@ class MainWindow(QMainWindow):
         body.setSpacing(10)
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.setFixedWidth(190)
+        self.nav.setMinimumWidth(130)
         self.nav.setDragEnabled(True)
         self.nav.setAcceptDrops(True)
         self.nav.viewport().setAcceptDrops(True)
@@ -941,7 +1131,10 @@ class MainWindow(QMainWindow):
         settings_card.setObjectName("card")
         settings_lay = QVBoxLayout(settings_card)
         settings_lay.setContentsMargins(14, 14, 14, 14)
-        settings_lay.addWidget(sub["settings"]())
+        self._settings_tab = sub["settings"]()
+        settings_lay.addWidget(self._settings_tab)
+        self._settings_tab.back_requested.connect(self._back_from_settings)
+        self._prev_key: str | None = None
         self._pages["settings"] = settings_card
         self._page_keys.append("settings")
         self.stack.addWidget(settings_card)
@@ -953,8 +1146,16 @@ class MainWindow(QMainWindow):
         nav_lay = QVBoxLayout(nav_card)
         nav_lay.setContentsMargins(4, 8, 4, 8)
         nav_lay.addWidget(self.nav)
-        body.addWidget(nav_card)
-        body.addWidget(self.stack, 1)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(nav_card)
+        splitter.addWidget(self.stack)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setCollapsible(0, False)
+        splitter.setCollapsible(1, False)
+        splitter.setSizes([200, 880])
+        self.splitter = splitter
+        body.addWidget(splitter, 1)
         root.addLayout(body, 1)
 
         self.log_panel = QWidget()
@@ -994,9 +1195,22 @@ class MainWindow(QMainWindow):
     def _select_page(self, key: str) -> None:
         if key in self._page_keys:
             if key == "settings":
+                cur = self._page_keys[self.stack.currentIndex()] if self._page_keys else None
+                self._prev_key = cur if cur != "settings" else self._prev_key
                 self.stack.setCurrentIndex(self._page_keys.index(key))
             else:
                 self.nav.setCurrentRow(self._page_keys.index(key))
+
+    def _back_from_settings(self) -> None:
+        key = self._prev_key if self._prev_key in self._page_keys and self._prev_key != "settings" else None
+        if key is None:
+            keys = [k for k in self._page_keys if k != "settings"]
+            r = self.nav.currentRow()
+            key = keys[r] if 0 <= r < len(keys) else (keys[0] if keys else "top100")
+        idx = self._page_keys.index(key)
+        self.stack.setCurrentIndex(idx)
+        if idx < self.nav.count():
+            self.nav.setCurrentRow(idx)
 
     def _on_nav_moved(self, *_):
         labels = [self.nav.item(i).text() for i in range(self.nav.count())]
@@ -1067,7 +1281,7 @@ def main():
         sys.stdout = sys.stdout or _null
         sys.stderr = sys.stderr or _null
     app = QApplication(sys.argv)
-    app.setStyleSheet(APP_STYLE)
+    app.setStyleSheet(APP_STYLE.replace("{COMBO_ARROW_RULE}", _combo_arrow_rule()))
     win = MainWindow()
     win.show()
     app.processEvents()  # 네트워크 체크 전에 창을 먼저 그려서 '실행 안 됨' 체감 제거

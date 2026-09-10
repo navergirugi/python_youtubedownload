@@ -10,6 +10,7 @@ class Candidate:
     url: str
     channel: str = ""
     duration_str: str = ""
+    duration_sec: int | None = None
 
 
 @dataclass(frozen=True)

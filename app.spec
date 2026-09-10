@@ -72,7 +72,7 @@ a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=_ffmpeg_binaries(),
-    datas=[],
+    datas=[('assets', 'assets')],
     hiddenimports=['PySide6', 'mutagen'],
     hookspath=[],
     runtime_hooks=[],
