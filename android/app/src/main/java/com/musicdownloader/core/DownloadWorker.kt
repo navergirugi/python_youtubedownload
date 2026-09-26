@@ -41,7 +41,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             if (clean.isEmpty()) return Result.failure(workDataOf("error" to "유효한 유튜브 URL이 아님 (검색 결과 URL 확인)"))
             val info = StreamInfo.getInfo(NewPipe.getService("YouTube"), clean)
             val base = Naming.songFilename(artist, title)
-            val tmpRaw = File.createTempFile("dl", ".bin", applicationContext.cacheDir)
+            val tmpRaw = File.createTempFile("mdl-", ".bin", applicationContext.cacheDir)
             try {
                 val (ext, mime) = if (kind == "audio") {
                     val cap = (quality.toIntOrNull() ?: 192) * 1000
