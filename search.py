@@ -104,7 +104,21 @@ def _fmt_duration(sec: object) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
-def youtube_search(query: str, n: int = config.YTSEARCH_N) -> list[Candidate]:
+def _is_music_entry(cats: object) -> bool:
+    if isinstance(cats, str):
+        cats = [cats]
+    if not isinstance(cats, (list, tuple)):
+        return False
+    return any(isinstance(c, str) and c.strip().lower() == "music" for c in cats)
+
+
+def youtube_search(
+    query: str, n: int = config.YTSEARCH_N, scope: str = config.DEFAULT_SEARCH_SCOPE
+) -> list[Candidate]:
+    """scope='music'(기본): 음악 카테고리 우선, 0건이면 전체로 폴백. scope='all': 전체."""
+    if scope not in config.SEARCH_SCOPES:
+        scope = config.DEFAULT_SEARCH_SCOPE
+    fetch_n = n + 10 if scope == "music" else n
     opts = {
         "quiet": True,
         "no_warnings": True,
@@ -113,9 +127,10 @@ def youtube_search(query: str, n: int = config.YTSEARCH_N) -> list[Candidate]:
         "socket_timeout": 30,
     }
     with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(f"ytsearch{n}:{query}", download=False)
+        info = ydl.extract_info(f"ytsearch{fetch_n}:{query}", download=False)
     entries = (info or {}).get("entries", []) if isinstance(info, dict) else []
     out: list[Candidate] = []
+    cats: list[object] = []
     for e in entries:
         if not e:
             continue
@@ -132,7 +147,11 @@ def youtube_search(query: str, n: int = config.YTSEARCH_N) -> list[Candidate]:
                 duration_sec=_parse_duration_sec(e.get("duration")),
             )
         )
-    return out
+        cats.append(e.get("categories") or [])
+    if scope == "music":
+        music = [c for c, k in zip(out, cats) if _is_music_entry(k)]
+        return (music if music else out)[:n]
+    return out[:n][:n]
 
 
 def format_candidates(cands: list[Candidate]) -> str:

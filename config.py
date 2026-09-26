@@ -23,6 +23,10 @@ SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".musicdownloader.json")
 
 YTSEARCH_N = 10
 
+SEARCH_SCOPES = ("music", "all")
+SEARCH_SCOPE_LABELS = {"music": "음악", "all": "전체"}
+DEFAULT_SEARCH_SCOPE = "music"
+
 MELON_URL = "https://www.melon.com/chart/index.htm"
 MELON_HEADERS = {
     "User-Agent": (

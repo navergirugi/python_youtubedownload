@@ -8,14 +8,23 @@ import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
-// NewPipeExtractor-based search (yt-dlp ytsearchN 대체, JVM pure)
+// NewPipeExtractor-based search (yt-dlp ytsearchN 대체, JVM pure).
+// scope='music'(기본): YouTube Music 필터 우선, 실패/0건이면 전체로 폴백.
 object YoutubeSearch {
-    suspend fun search(query: String, n: Int = Constants.YTSEARCH_N): List<Candidate> =
-        withContext(Dispatchers.IO) {
-            val service = NewPipe.getService(0)
-            val qh = service.searchQHFactory.fromQuery(query, emptyList(), "")
+    const val SCOPE_MUSIC = "music"
+    const val SCOPE_ALL = "all"
+
+    suspend fun search(
+        query: String,
+        n: Int = Constants.YTSEARCH_N,
+        scope: String = SCOPE_MUSIC,
+        musicFilter: String = "music_songs",
+    ): List<Candidate> = withContext(Dispatchers.IO) {
+        val service = NewPipe.getService(0)
+        fun run(filter: List<String>): List<Candidate> {
+            val qh = service.searchQHFactory.fromQuery(query, filter, "")
             val info = SearchInfo.getInfo(service, qh)
-            info.relatedItems
+            return info.relatedItems
                 .filterIsInstance<StreamInfoItem>()
                 .take(n)
                 .map {
@@ -27,6 +36,18 @@ object YoutubeSearch {
                     )
                 }
         }
+        if (scope == SCOPE_MUSIC) {
+            try {
+                val music = run(listOf(musicFilter))
+                if (music.isNotEmpty()) return@withContext music
+            } catch (_: Exception) { }
+        }
+        try {
+            run(emptyList())
+        } catch (e: Exception) {
+            throw RuntimeException("검색 실패: ${e.message}")
+        }
+    }
 
     suspend fun fetchUrlMeta(url: String): Triple<String, String, String> =
         withContext(Dispatchers.IO) {

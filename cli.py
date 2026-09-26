@@ -42,17 +42,30 @@ def ask_names(artist: str, title: str, input_fn=input) -> tuple[str, str]:
     return a, t
 
 
-def resolve_one(query: str):
+def ask_search_scope() -> str:
+    labels = "/".join(config.SEARCH_SCOPE_LABELS[s] for s in config.SEARCH_SCOPES)
+    while True:
+        v = input(f"검색 범위 [{labels}] (엔터={config.SEARCH_SCOPE_LABELS[config.DEFAULT_SEARCH_SCOPE]}): ").strip()
+        if not v:
+            return config.DEFAULT_SEARCH_SCOPE
+        for s in config.SEARCH_SCOPES:
+            if v == s or v == config.SEARCH_SCOPE_LABELS[s]:
+                return s
+        print(f"{labels} 중 선택하세요.")
+
+
+def resolve_one(query: str, scope: str | None = None):
     from search import MORE_STEP
 
     q = query
-    cands = youtube_search(q)
+    scope = scope or config.DEFAULT_SEARCH_SCOPE
+    cands = youtube_search(q, scope=scope)
     while True:
         confirmed, re_q, more = confirm_loop_cli(cands)
         if confirmed:
             return confirmed
         if more:
-            extra = youtube_search(q, n=len(cands) + MORE_STEP)
+            extra = youtube_search(q, n=len(cands) + MORE_STEP, scope=scope)
             merged = merge_candidates(cands, extra)
             if len(merged) == len(cands):
                 print("추가 결과가 없습니다.")
@@ -62,14 +75,14 @@ def resolve_one(query: str):
             continue
         if re_q:
             q = re_q
-            cands = youtube_search(q)
+            cands = youtube_search(q, scope=scope)
             continue
         return None
 
 
-def flow_audio(artist: str, title: str, bitrate: str | None = None) -> None:
+def flow_audio(artist: str, title: str, bitrate: str | None = None, scope: str | None = None) -> None:
     entry = SongEntry(artist=artist, title=title)
-    c = resolve_one(entry.query_audio())
+    c = resolve_one(entry.query_audio(), scope=scope or ask_search_scope())
     if not c:
         print("취소됨.")
         return
@@ -82,7 +95,7 @@ def flow_audio(artist: str, title: str, bitrate: str | None = None) -> None:
 
 def flow_video(artist: str, title: str, quality: str | None = None) -> None:
     entry = SongEntry(artist=artist, title=title)
-    c = resolve_one(entry.query_video())
+    c = resolve_one(entry.query_video(), scope=ask_search_scope())
     if not c:
         print("취소됨.")
         return
@@ -117,6 +130,7 @@ def flow_top100() -> None:
             print("입력 없음. 중단.")
             return
     br = ask_audio_bitrate()
+    scope = ask_search_scope()
     print(f"전체 {len(songs)}곡을 {br}k 로 다운로드합니다.")
     for i, s in enumerate(songs, 1):
         print(f"\n[{i}/{len(songs)}] {s.artist} - {s.title}")
@@ -126,7 +140,7 @@ def flow_top100() -> None:
         if cmd == "s":
             continue
         try:
-            flow_audio(s.artist, s.title, bitrate=br)
+            flow_audio(s.artist, s.title, bitrate=br, scope=scope)
         except Exception as e:
             print(f"실패: {e}")
 

@@ -13,9 +13,11 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.musicdownloader.core.Candidate
 import com.musicdownloader.core.YoutubeSearch
+import com.musicdownloader.ui.rememberWorkStatus
 import com.musicdownloader.util.Constants
 import com.musicdownloader.util.Naming
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @Composable
 private fun SearchScreenImpl(mode: String) {
@@ -26,7 +28,11 @@ private fun SearchScreenImpl(mode: String) {
     var cands by remember { mutableStateOf<List<Candidate>>(emptyList()) }
     var status by remember { mutableStateOf("") }
     var quality by remember { mutableStateOf(if (mode == "audio") Constants.DEFAULT_AUDIO_BITRATE else Constants.DEFAULT_VIDEO_QUALITY) }
+    var scopeMusic by remember { mutableStateOf(true) }
+    val musicFilter = if (mode == "audio") "music_songs" else "music_videos"
     var confirm by remember { mutableStateOf<Candidate?>(null) }
+    var lastId by remember { mutableStateOf<UUID?>(null) }
+    val (workText, workProg) = rememberWorkStatus(lastId)
     val qualities = if (mode == "audio") Constants.AUDIO_BITRATES else Constants.VIDEO_QUALITIES
 
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -42,18 +48,34 @@ private fun SearchScreenImpl(mode: String) {
                     qualities.forEach { DropdownMenuItem(text = { Text(it) }, onClick = { quality = it; expanded = false }) }
                 }
             }
+            var scopeExpanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { scopeExpanded = true }) { Text(if (scopeMusic) "음악" else "전체") }
+                DropdownMenu(scopeExpanded, onDismissRequest = { scopeExpanded = false }) {
+                    DropdownMenuItem(text = { Text("음악") }, onClick = { scopeMusic = true; scopeExpanded = false })
+                    DropdownMenuItem(text = { Text("전체") }, onClick = { scopeMusic = false; scopeExpanded = false })
+                }
+            }
             Button(onClick = {
                 scope.launch {
                     status = "검색 중..."
                     try {
                         val q = if (mode == "audio") Constants.buildAudioQuery(artist, title) else Constants.buildVideoQuery(artist, title)
-                        cands = YoutubeSearch.search(q)
+                        cands = YoutubeSearch.search(
+                            q,
+                            scope = if (scopeMusic) YoutubeSearch.SCOPE_MUSIC else YoutubeSearch.SCOPE_ALL,
+                            musicFilter = musicFilter,
+                        )
                         status = "${cands.size}건 (행 탭 → 컨펌 후 다운로드)"
                     } catch (e: Exception) { status = "검색 실패: ${e.message}" }
                 }
             }, enabled = artist.isNotBlank() || title.isNotBlank()) { Text("유튜브 검색") }
         }
         Text(status)
+        if (workText.isNotBlank()) {
+            Text(workText)
+            if (workProg in 1..99) LinearProgressIndicator(progress = { workProg / 100f }, modifier = Modifier.fillMaxWidth())
+        }
         LazyColumn(Modifier.weight(1f)) {
             itemsIndexed(cands) { _, c ->
                 ListItem(
@@ -79,6 +101,7 @@ private fun SearchScreenImpl(mode: String) {
                         .setInputData(workDataOf("watchUrl" to c.url, "artist" to fa, "title" to ft, "kind" to mode, "quality" to quality))
                         .build()
                     WorkManager.getInstance(ctx).enqueue(req)
+                    lastId = req.id
                     confirm = null
                 }) { Text("다운로드") }
             },

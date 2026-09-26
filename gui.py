@@ -306,15 +306,16 @@ class SearchWorker(QThread):
     found = Signal(list)
     failed = Signal(str)
 
-    def __init__(self, query: str, n: int = 10, parent=None):
+    def __init__(self, query: str, n: int = 10, parent=None, scope: str = config.DEFAULT_SEARCH_SCOPE):
         super().__init__(parent)
         self._query = query
         self._n = n
+        self._scope = scope
         _track(self)
 
     def run(self):
         try:
-            cands = youtube_search(self._query, n=self._n)
+            cands = youtube_search(self._query, n=self._n, scope=self._scope)
             self.found.emit(cands)
         except Exception as e:
             traceback.print_exc()
@@ -369,6 +370,11 @@ class SearchTab(QWidget):
             self.quality.addItems(list(config.VIDEO_QUALITIES))
             self.quality.setCurrentText(config.DEFAULT_VIDEO_QUALITY)
         qrow.addWidget(self.quality)
+        qrow.addWidget(QLabel("검색 범위:"))
+        self.scope = QComboBox()
+        self.scope.addItems([config.SEARCH_SCOPE_LABELS[s] for s in config.SEARCH_SCOPES])
+        self.scope.setCurrentText(config.SEARCH_SCOPE_LABELS[config.DEFAULT_SEARCH_SCOPE])
+        qrow.addWidget(self.scope)
         qrow.addStretch(1)
         layout.addLayout(qrow)
 
@@ -422,6 +428,13 @@ class SearchTab(QWidget):
         if msg:
             self.search_status.setText(msg)
 
+    def _scope_key(self) -> str:
+        label = self.scope.currentText()
+        for s in config.SEARCH_SCOPES:
+            if config.SEARCH_SCOPE_LABELS[s] == label:
+                return s
+        return config.DEFAULT_SEARCH_SCOPE
+
     def on_search(self):
         if not self.artist.text().strip() and not self.title.text().strip():
             QMessageBox.warning(self, "입력", "가수명 또는 제목 중 하나는 입력하세요.")
@@ -429,7 +442,7 @@ class SearchTab(QWidget):
         q = self._query()
         self.log_fn(f"검색 중: {q} ...")
         self._set_searching(True, f"검색 중: {q} ...")
-        self._search_worker = SearchWorker(q)
+        self._search_worker = SearchWorker(q, scope=self._scope_key())
         self._search_worker.found.connect(self._on_search_found)
         self._search_worker.failed.connect(self._on_search_failed)
         self._search_worker.start()
@@ -487,7 +500,7 @@ class SearchTab(QWidget):
         q = self._query()
         self.log_fn(f"추가 검색 중: {q} ...")
         self._set_searching(True, f"추가 검색 중: {q} ...")
-        self._more_worker = SearchWorker(q, n=len(self.all_cands) + MORE_STEP)
+        self._more_worker = SearchWorker(q, n=len(self.all_cands) + MORE_STEP, scope=self._scope_key())
         self._more_worker.found.connect(self._on_more_found)
         self._more_worker.failed.connect(self._on_more_failed)
         self._more_worker.start()
@@ -581,6 +594,11 @@ class Top100Tab(QWidget):
         self.bitrate.addItems(list(config.AUDIO_BITRATES))
         self.bitrate.setCurrentText(config.DEFAULT_AUDIO_BITRATE)
         qrow.addWidget(self.bitrate)
+        qrow.addWidget(QLabel("검색 범위:"))
+        self.top_scope = QComboBox()
+        self.top_scope.addItems([config.SEARCH_SCOPE_LABELS[s] for s in config.SEARCH_SCOPES])
+        self.top_scope.setCurrentText(config.SEARCH_SCOPE_LABELS[config.DEFAULT_SEARCH_SCOPE])
+        qrow.addWidget(self.top_scope)
         self.sel_info = QLabel("행 클릭+Ctrl/Shift으로 여러 곡 선택 가능")
         self.sel_info.setObjectName("info")
         qrow.addWidget(self.sel_info)
@@ -666,6 +684,8 @@ class Top100Tab(QWidget):
 
     def _download_indices(self, indices: list[int]):
         br = self.bitrate.currentText()
+        label = self.top_scope.currentText()
+        scope = next((s for s in config.SEARCH_SCOPES if config.SEARCH_SCOPE_LABELS[s] == label), config.DEFAULT_SEARCH_SCOPE)
         self.dl_all_btn.setEnabled(False)
         self.dl_sel_btn.setEnabled(False)
         self.top_bar.setValue(0)
@@ -684,7 +704,7 @@ class Top100Tab(QWidget):
                 base = k / total * 100.0
                 step = 100.0 / total
                 try:
-                    cands = youtube_search(s.query_audio(), n=3)
+                    cands = youtube_search(s.query_audio(), n=3, scope=scope)
                 except Exception as e:
                     log(f"  검색 실패: {e}")
                     fail_cnt += 1
