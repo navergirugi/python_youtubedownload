@@ -35,7 +35,8 @@ fun rememberWorkStatus(id: UUID?): Pair<String, Int> {
                 WorkInfo.State.RUNNING -> {
                     val p = info.progress.getInt("progress", 0)
                     prog = p
-                    text = "다운로드 중... $p%"
+                    val note = info.progress.getString("note")
+                    text = if (note != null) "$note ($p%)" else "다운로드 중... $p%"
                 }
                 WorkInfo.State.SUCCEEDED -> {
                     prog = 100

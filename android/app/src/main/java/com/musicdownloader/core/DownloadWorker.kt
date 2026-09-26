@@ -169,17 +169,41 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         return "${MediaConvert.RELATIVE_DIR}/$fileName"
     }
 
-    private fun downloadToFile(url: String, dst: File, label: String) {
-        val client = OkHttpClient()
-        val req = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0").build()
-        client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
+    private suspend fun downloadToFile(url: String, dst: File, label: String) {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        var attempt = 0
+        while (true) {
+            attempt++
+            try {
+                resumeDownload(client, url, dst, label)
+                return
+            } catch (e: Exception) {
+                if (attempt >= 4) throw e
+                setProgressAsync(workDataOf("note" to "연결 끊김, 재시도 $attempt/3"))
+                kotlinx.coroutines.delay(2000L * attempt)
+            }
+        }
+    }
+
+    private fun resumeDownload(client: OkHttpClient, url: String, dst: File, label: String) {
+        val have = if (dst.exists()) dst.length() else 0L
+        val builder = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0")
+        if (have > 0) builder.header("Range", "bytes=$have-")
+        client.newCall(builder.build()).execute().use { resp ->
+            if (resp.code == 416 && have > 0) return
+            if (!resp.isSuccessful && resp.code != 206) throw RuntimeException("HTTP ${resp.code}")
+            val append = resp.code == 206 && have > 0
+            if (!append && have > 0) dst.delete()
             val body = resp.body ?: throw RuntimeException("empty body")
-            val total = body.contentLength()
+            val remaining = body.contentLength()
+            val total = if (append && remaining > 0) remaining + have else remaining
             body.byteStream().use { ins ->
-                FileOutputStream(dst).use { out ->
+                FileOutputStream(dst, append).use { out ->
                     val buf = ByteArray(64 * 1024)
-                    var done = 0L
+                    var done = if (append) have else 0L
                     var lastPct = -1
                     var lastTime = 0L
                     while (true) {
@@ -200,6 +224,9 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                                 }
                             }
                         }
+                    }
+                    if (total > 0 && dst.length() < total) {
+                        throw RuntimeException("incomplete (${dst.length()}/$total)")
                     }
                 }
             }
