@@ -43,7 +43,17 @@ class MainActivity : ComponentActivity() {
             NewPipe.init(object : Downloader() {
                 override fun execute(req: Request): Response {
                     val b = OkReq.Builder().url(req.url())
-                    req.headers().forEach { (k, v) -> v.forEach { b.header(k, it) } }
+                    var hasUa = false
+                    req.headers().forEach { (k, v) ->
+                        if (k.equals("User-Agent", ignoreCase = true)) hasUa = true
+                        v.forEach { b.header(k, it) }
+                    }
+                    if (!hasUa) {
+                        b.header(
+                            "User-Agent",
+                            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+                        )
+                    }
                     req.dataToSend()?.let { b.post(okhttp3.RequestBody.create(null, it)) }
                     client.newCall(b.build()).execute().use { r ->
                         val body = r.body?.string() ?: ""

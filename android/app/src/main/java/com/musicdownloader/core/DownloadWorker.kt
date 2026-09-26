@@ -81,6 +81,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 tmpRaw.delete()
             }
         } catch (e: Exception) {
+            android.util.Log.e("MusicDownloader", "download failed: $streamUrl", e)
             val msg = e.message ?: "download failed"
             notifyDone(label, false, msg)
             Result.failure(workDataOf("error" to msg))

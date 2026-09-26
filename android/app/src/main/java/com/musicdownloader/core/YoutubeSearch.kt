@@ -1,5 +1,6 @@
 package com.musicdownloader.core
 
+import android.util.Log
 import com.musicdownloader.util.Constants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,11 +41,14 @@ object YoutubeSearch {
             try {
                 val music = run(listOf(musicFilter))
                 if (music.isNotEmpty()) return@withContext music
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                Log.e("MusicDownloader", "music search failed, falling back to all", e)
+            }
         }
         try {
             run(emptyList())
         } catch (e: Exception) {
+            Log.e("MusicDownloader", "search failed", e)
             throw RuntimeException("검색 실패: ${e.message}")
         }
     }
@@ -55,7 +59,8 @@ object YoutubeSearch {
             try {
                 val info = StreamInfo.getInfo(NewPipe.getService("YouTube"), clean)
                 Triple(info.uploaderName ?: info.subChannelName ?: "", info.name ?: "", clean)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("MusicDownloader", "fetchUrlMeta failed: $clean", e)
                 Triple("", "", clean)
             }
         }
