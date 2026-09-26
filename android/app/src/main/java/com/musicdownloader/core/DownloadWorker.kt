@@ -39,7 +39,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             }
             val clean = UrlNormalize.cleanYoutubeUrl(streamUrl)
             if (clean.isEmpty()) return Result.failure(workDataOf("error" to "유효한 유튜브 URL이 아님 (검색 결과 URL 확인)"))
-            val info = StreamInfo.getInfo(NewPipe.getService(0), clean)
+            val info = StreamInfo.getInfo(NewPipe.getService("YouTube"), clean)
             val base = Naming.songFilename(artist, title)
             val tmpRaw = File.createTempFile("dl", ".bin", applicationContext.cacheDir)
             try {
