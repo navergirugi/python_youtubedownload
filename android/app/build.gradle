@@ -70,7 +70,7 @@ dependencies {
 
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.jsoup:jsoup:1.17.2'
-    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.24.5'
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
     // NOTE: ffmpeg-kit binaries were pulled from Maven Central (arthenica shutdown).
     // v1 ships FFmpeg-free: progressive MP4 + raw audio save. See README-ANDROID.md.
 

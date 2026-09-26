@@ -20,7 +20,7 @@ object YoutubeSearch {
         scope: String = SCOPE_MUSIC,
         musicFilter: String = "music_songs",
     ): List<Candidate> = withContext(Dispatchers.IO) {
-        val service = NewPipe.getService(0)
+            val service = NewPipe.getService("YouTube")
         fun run(filter: List<String>): List<Candidate> {
             val qh = service.searchQHFactory.fromQuery(query, filter, "")
             val info = SearchInfo.getInfo(service, qh)
@@ -53,7 +53,7 @@ object YoutubeSearch {
         withContext(Dispatchers.IO) {
             val clean = UrlNormalize.cleanYoutubeUrl(url)
             try {
-                val info = StreamInfo.getInfo(NewPipe.getService(0), clean)
+                val info = StreamInfo.getInfo(NewPipe.getService("YouTube"), clean)
                 Triple(info.uploaderName ?: info.subChannelName ?: "", info.name ?: "", clean)
             } catch (_: Exception) {
                 Triple("", "", clean)
