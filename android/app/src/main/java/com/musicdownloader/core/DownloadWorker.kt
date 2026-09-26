@@ -32,8 +32,11 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val kind = inputData.getString("kind") ?: "audio"
         val quality = inputData.getString("quality") ?: if (kind == "audio") Constants.DEFAULT_AUDIO_BITRATE else Constants.DEFAULT_VIDEO_QUALITY
         val label = "$artist - $title"
-        setForegroundAsync(foregroundInfo(label, -1))
         return try {
+            try {
+                setForegroundAsync(foregroundInfo(label, -1))
+            } catch (_: Exception) {
+            }
             val clean = UrlNormalize.cleanYoutubeUrl(streamUrl)
             if (clean.isEmpty()) return Result.failure(workDataOf("error" to "유효한 유튜브 URL이 아님 (검색 결과 URL 확인)"))
             val info = StreamInfo.getInfo(NewPipe.getService(0), clean)
@@ -108,8 +111,13 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     }
 
     private fun notifyDone(title: String, ok: Boolean, detail: String) {
-        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val nm = try {
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        } catch (_: Exception) {
+            return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "다운로드", NotificationManager.IMPORTANCE_LOW)
             )
@@ -124,6 +132,8 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             .setAutoCancel(true)
             .build()
         nm.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notif)
+        } catch (_: Exception) {
+        }
     }
 
     companion object {
@@ -183,7 +193,10 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                             if (pct - lastPct >= 5 || now - lastTime > 2000) {
                                 lastPct = pct
                                 lastTime = now
-                                setForegroundAsync(foregroundInfo(label, pct))
+                                try {
+                                    setForegroundAsync(foregroundInfo(label, pct))
+                                } catch (_: Exception) {
+                                }
                             }
                         }
                     }
