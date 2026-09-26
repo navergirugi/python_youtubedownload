@@ -13,6 +13,8 @@ import androidx.work.workDataOf
 import androidx.compose.ui.platform.LocalContext
 import com.musicdownloader.core.MelonChart
 import com.musicdownloader.core.SongEntry
+import com.musicdownloader.core.YoutubeSearch
+import com.musicdownloader.ui.rememberBatchStatus
 import com.musicdownloader.util.Constants
 import kotlinx.coroutines.launch
 
@@ -24,6 +26,8 @@ fun Top100Screen() {
     var status by remember { mutableStateOf("가져오기 버튼을 누르세요 (차단 시 수동 입력)") }
     var manual by remember { mutableStateOf("") }
     var bitrate by remember { mutableStateOf(Constants.DEFAULT_AUDIO_BITRATE) }
+    var batchTag by remember { mutableStateOf<String?>(null) }
+    val batchText = rememberBatchStatus(batchTag)
 
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -48,16 +52,27 @@ fun Top100Screen() {
             songs = ok; status = "수동 ${ok.size}곡 (무시 ${err.size}줄)"
         }) { Text("수동 로드") }
         Text(status)
+        if (batchText.isNotBlank()) Text(batchText)
         LazyColumn(Modifier.weight(1f)) {
             itemsIndexed(songs) { i, s ->
                 ListItem(
                     headlineContent = { Text("${i + 1}. ${s.artist} - ${s.title}") },
                     trailingContent = {
                         Button(onClick = {
-                            val req = OneTimeWorkRequestBuilder<com.musicdownloader.core.DownloadWorker>()
-                                .setInputData(workDataOf("watchUrl" to "https://www.youtube.com/results?search_query=${s.queryAudio()}", "artist" to s.artist, "title" to s.title, "kind" to "audio", "quality" to bitrate))
-                                .build()
-                            WorkManager.getInstance(ctx).enqueue(req)
+                            scope.launch {
+                                try {
+                                    val found = YoutubeSearch.search(s.queryAudio(), 3).firstOrNull()
+                                        ?: throw RuntimeException("검색 결과 없음")
+                                    val tag = batchTag ?: "top100-${System.currentTimeMillis()}".also { batchTag = it }
+                                    val req = OneTimeWorkRequestBuilder<com.musicdownloader.core.DownloadWorker>()
+                                        .addTag(tag)
+                                        .setInputData(workDataOf("watchUrl" to found.url, "artist" to s.artist, "title" to s.title, "kind" to "audio", "quality" to bitrate))
+                                        .build()
+                                    WorkManager.getInstance(ctx).enqueue(req)
+                                } catch (e: Exception) {
+                                    status = "실패 (${s.artist} - ${s.title}): ${e.message}"
+                                }
+                            }
                         }) { Text("다운") }
                     }
                 )

@@ -11,9 +11,11 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.musicdownloader.core.UrlNormalize
 import com.musicdownloader.core.YoutubeSearch
+import com.musicdownloader.ui.rememberWorkStatus
 import com.musicdownloader.util.Constants
 import com.musicdownloader.util.Naming
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @Composable
 fun UrlScreen(initialUrl: String = "") {
@@ -26,6 +28,8 @@ fun UrlScreen(initialUrl: String = "") {
     var title by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
     var confirmUrl by remember { mutableStateOf<String?>(null) }
+    var lastId by remember { mutableStateOf<UUID?>(null) }
+    val (workText, workProg) = rememberWorkStatus(lastId)
 
     LaunchedEffect(initialUrl) { if (initialUrl.isNotBlank()) raw = initialUrl }
     LaunchedEffect(kind) { quality = if (kind == "audio") Constants.DEFAULT_AUDIO_BITRATE else Constants.DEFAULT_VIDEO_QUALITY }
@@ -63,6 +67,10 @@ fun UrlScreen(initialUrl: String = "") {
             }
         }) { Text("URL 컨펌 후 다운로드") }
         Text(status)
+        if (workText.isNotBlank()) {
+            Text(workText)
+            if (workProg in 1..99) LinearProgressIndicator(progress = { workProg / 100f }, modifier = Modifier.fillMaxWidth())
+        }
     }
     confirmUrl?.let { url ->
         val ext = if (kind == "audio") ".mp3" else ".mp4"
@@ -76,7 +84,8 @@ fun UrlScreen(initialUrl: String = "") {
                         .setInputData(workDataOf("watchUrl" to url, "artist" to artist.ifBlank { "Unknown" }, "title" to title.ifBlank { "url_download" }, "kind" to kind, "quality" to quality))
                         .build()
                     WorkManager.getInstance(ctx).enqueue(req)
-                    confirmUrl = null; status = "다운로드 큐에 등록됨 (Download/MusicDownloader)"
+                    lastId = req.id
+                    confirmUrl = null; status = "다운로드 큐에 등록됨"
                 }) { Text("다운로드") }
             },
             dismissButton = { OutlinedButton(onClick = { confirmUrl = null }) { Text("취소") } }
