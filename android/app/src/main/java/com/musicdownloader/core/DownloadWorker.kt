@@ -1,10 +1,15 @@
 package com.musicdownloader.core
 
 import android.content.ContentValues
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.provider.MediaStore
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.musicdownloader.util.Constants
@@ -26,6 +31,8 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val title = inputData.getString("title") ?: "untitled"
         val kind = inputData.getString("kind") ?: "audio"
         val quality = inputData.getString("quality") ?: if (kind == "audio") Constants.DEFAULT_AUDIO_BITRATE else Constants.DEFAULT_VIDEO_QUALITY
+        val label = "$artist - $title"
+        setForegroundAsync(foregroundInfo(label, -1))
         return try {
             val clean = UrlNormalize.cleanYoutubeUrl(streamUrl)
             if (clean.isEmpty()) return Result.failure(workDataOf("error" to "유효한 유튜브 URL이 아님 (검색 결과 URL 확인)"))
@@ -39,7 +46,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     val picked = audios.filter { it.averageBitrate in 1..cap }.maxByOrNull { it.averageBitrate }
                         ?: audios.maxByOrNull { it.averageBitrate }
                         ?: return Result.failure(workDataOf("error" to "오디오 스트림 없음"))
-                    downloadToFile(picked.content, tmpRaw)
+                    downloadToFile(picked.content, tmpRaw, label)
                     val ext = try {
                         MediaConvert.extForAudio(picked.codec, picked.format?.suffix)
                     } catch (_: Exception) { "m4a" }
@@ -54,7 +61,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     val picked = vids.filter { maxH == null || heightOf(it) <= maxH }.maxByOrNull { heightOf(it) }
                         ?: vids.maxByOrNull { heightOf(it) }
                         ?: return Result.failure(workDataOf("error" to "비디오 스트림 없음"))
-                    downloadToFile(picked.content, tmpRaw)
+                    downloadToFile(picked.content, tmpRaw, label)
                     "mp4" to "video/mp4"
                 }
                 val fileName = "$base.$ext"
@@ -66,12 +73,62 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     out.absolutePath
                 }
                 Result.success(workDataOf("path" to displayPath, "displayPath" to displayPath))
+                    .also { notifyDone(label, true, displayPath) }
             } finally {
                 tmpRaw.delete()
             }
         } catch (e: Exception) {
-            Result.failure(workDataOf("error" to (e.message ?: "download failed")))
+            val msg = e.message ?: "download failed"
+            notifyDone(label, false, msg)
+            Result.failure(workDataOf("error" to msg))
         }
+    }
+
+    private fun foregroundInfo(title: String, progress: Int): ForegroundInfo {
+        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "다운로드", NotificationManager.IMPORTANCE_LOW)
+            )
+        }
+        val indeterminate = progress !in 0..100
+        val notif = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(if (indeterminate) "준비 중..." else "다운로드 중... $progress%")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setProgress(100, progress.coerceIn(0, 100), indeterminate)
+            .build()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(NOTIF_ID, notif)
+        }
+    }
+
+    private fun notifyDone(title: String, ok: Boolean, detail: String) {
+        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "다운로드", NotificationManager.IMPORTANCE_LOW)
+            )
+        }
+        val notif = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle(if (ok) "다운로드 완료" else "다운로드 실패")
+            .setContentText(if (detail.length > 120) detail.take(117) + "..." else detail)
+            .setSmallIcon(
+                if (ok) android.R.drawable.stat_sys_download_done
+                else android.R.drawable.stat_notify_error
+            )
+            .setAutoCancel(true)
+            .build()
+        nm.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notif)
+    }
+
+    companion object {
+        private const val CHANNEL_ID = "downloads"
+        private const val NOTIF_ID = 1001
     }
 
     private fun saveToMediaStore(fileName: String, mime: String, src: File): String {
@@ -101,7 +158,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         return "${MediaConvert.RELATIVE_DIR}/$fileName"
     }
 
-    private fun downloadToFile(url: String, dst: File) {
+    private fun downloadToFile(url: String, dst: File, label: String) {
         val client = OkHttpClient()
         val req = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0").build()
         client.newCall(req).execute().use { resp ->
@@ -112,12 +169,23 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 FileOutputStream(dst).use { out ->
                     val buf = ByteArray(64 * 1024)
                     var done = 0L
+                    var lastPct = -1
+                    var lastTime = 0L
                     while (true) {
                         val r = ins.read(buf)
                         if (r < 0) break
                         out.write(buf, 0, r)
                         done += r
-                        if (total > 0) setProgressAsync(workDataOf("progress" to ((done * 100 / total).toInt().coerceIn(0, 100))))
+                        if (total > 0) {
+                            val pct = ((done * 100 / total).toInt().coerceIn(0, 100))
+                            setProgressAsync(workDataOf("progress" to pct))
+                            val now = System.currentTimeMillis()
+                            if (pct - lastPct >= 5 || now - lastTime > 2000) {
+                                lastPct = pct
+                                lastTime = now
+                                setForegroundAsync(foregroundInfo(label, pct))
+                            }
+                        }
                     }
                 }
             }
