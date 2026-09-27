@@ -30,7 +30,7 @@ REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 B64="$(base64 < "$SRC" | tr -d '\n')"
 
 echo "→ $REPO 에 YTDL_COOKIES_B64 저장 (기존 값 덮어씀)"
-printf '%s' "$B64" | gh secret set YTDL_COOKIES_B64 --repo "$REPO" --body-file -
+printf '%s' "$B64" | gh secret set YTDL_COOKIES_B64 --repo "$REPO"
 
 echo "완료. 이제 PWA에서 검색/다운로드를 시도해봐."
 echo "주의: 쿠키가 만료되면(보통 몇 주) 이 스크립트를 다시 실행해야 한다."
