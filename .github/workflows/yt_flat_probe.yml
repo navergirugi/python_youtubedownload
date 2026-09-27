@@ -1,0 +1,35 @@
+name: yt flat search probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q -r requirements.txt
+      - name: Flat vs full search
+        run: |
+          python - <<'PY'
+          from yt_dlp import YoutubeDL
+          base = {"quiet": True, "no_warnings": True, "skip_download": True}
+          for label, flat in (("FLAT", True), ("FULL", False)):
+              try:
+                  opts = {**base, "extract_flat": flat, "socket_timeout": 30}
+                  with YoutubeDL(opts) as y:
+                      info = y.extract_info("ytsearch3:IU Celebrity official audio", download=False)
+                  n = len([e for e in info.get("entries", []) if e])
+                  print(f"VERDICT {label}=OK results={n}")
+              except Exception as e:
+                  blob = str(e)
+                  reason = "BOTBLOCK" if "not a bot" in blob else "OTHER"
+                  print(f"VERDICT {label}={reason} {blob.strip()[:100]}")
+          PY
