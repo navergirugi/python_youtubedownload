@@ -1,0 +1,42 @@
+name: yt client probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -q -r requirements.txt
+      - name: Probe player clients
+        run: |
+          python - <<'PY'
+          import subprocess, sys
+          clients = [
+              "android", "web", "tv", "tv_simply", "web_safari",
+              "mweb", "ios", "android_vr", "web_embedded", "tv_embedded",
+          ]
+          url = "https://www.youtube.com/watch?v=rJ5iyzjErr8"
+          ok = []
+          for c in clients:
+              cmd = [
+                  sys.executable, "-m", "yt_dlp",
+                  "--extractor-args", f"youtube:player_client={c}",
+                  "--skip-download", "--no-warnings", "-j", url,
+              ]
+              p = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+              blob = p.stdout + p.stderr
+              if p.returncode == 0 and '"url"' in blob:
+                  ok.append(c)
+                  print(f"RESULT {c}: OK")
+              else:
+                  reason = "bot-check" if "not a bot" in blob else (
+                      "signin" if "Sign in" in blob else "other")
+                  print(f"RESULT {c}: FAIL ({reason}) {blob.strip()[:120]}")
+          print("SUMMARY_OK=" + ",".join(ok))
+          PY
