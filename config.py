@@ -23,6 +23,16 @@ SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".musicdownloader.json")
 
 YTSEARCH_N = 10
 
+# YouTube 쿠키 파일 (opt-in, 환경변수로만 켬).
+# PWA 백엔드(GitHub Actions)는 데이터센터 IP라 유튜브에 봇으로 차단돼
+# 로그인 쿠키가 필요해. 일반 실행(데스크톱)에는 설정되지 않아 영향 없음.
+COOKIE_FILE = os.environ.get("MD_COOKIE_FILE", "")
+
+
+def cookie_opts() -> dict:
+    """yt-dlp opts에 쿠키 파일을 넣는다. 설정 안 됐으면 빈 dict (데스크톱 기본 경로)."""
+    return {"cookiefile": COOKIE_FILE} if COOKIE_FILE else {}
+
 SEARCH_SCOPES = ("music", "all")
 SEARCH_SCOPE_LABELS = {"music": "음악", "all": "전체"}
 DEFAULT_SEARCH_SCOPE = "music"

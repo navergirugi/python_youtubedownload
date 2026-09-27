@@ -68,7 +68,8 @@ def fetch_url_meta(url: str, timeout: int = 30) -> tuple[str, str, str]:
         with YoutubeDL(
             {"quiet": True, "no_warnings": True, "skip_download": True,
              "noplaylist": True, "socket_timeout": timeout,
-             "extractor_args": {"youtube": {"player_client": ["android", "web"]}}}
+             "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+             **config.cookie_opts()}
         ) as ydl:
             info = ydl.extract_info(clean, download=False)
         if isinstance(info, dict):
@@ -125,6 +126,7 @@ def youtube_search(
         "skip_download": True,
         "extract_flat": False,
         "socket_timeout": 30,
+        **config.cookie_opts(),
     }
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(f"ytsearch{fetch_n}:{query}", download=False)

@@ -87,6 +87,7 @@ def _base_opts(on_progress=None) -> dict:
         },
         # 403 SABR 차단 우회: android 클라이언트 우선, web 폴백
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        **config.cookie_opts(),
         **({"ffmpeg_location": loc} if (loc := _ffmpeg_location()) else {}),
     }
     return opts

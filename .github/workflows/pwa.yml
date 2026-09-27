@@ -55,6 +55,21 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
           pip install -q -r requirements.txt
 
+      - name: Prepare YouTube cookies
+        env:
+          YTDL_COOKIES_B64: ${{ secrets.YTDL_COOKIES_B64 }}
+        run: |
+          if [ -z "$YTDL_COOKIES_B64" ]; then
+            echo "::error::YTDL_COOKIES_B64 secret is not set. GitHub Actions IPs are bot-blocked"
+            echo "::error::by YouTube, so a cookies.txt export is mandatory for this backend."
+            echo "::error::Run tools/setup_pwa_cookie.sh <cookies.txt> to set it."
+            exit 1
+          fi
+          printf '%s' "$YTDL_COOKIES_B64" | base64 -d > "$RUNNER_TEMP/cookies.txt"
+          chmod 600 "$RUNNER_TEMP/cookies.txt"
+          echo "MD_COOKIE_FILE=$RUNNER_TEMP/cookies.txt" >> "$GITHUB_ENV"
+          echo "cookies.txt ready"
+
       - name: Run (search)
         if: inputs.mode == 'search'
         env:

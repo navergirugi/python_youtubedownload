@@ -103,9 +103,14 @@
       <input id="token" type="password" placeholder="ghp_..." autocomplete="off">
       <button id="tokenSave">토큰 저장</button>
       <p class="note">
-        GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic).
-        <b>workflow</b> 스코프 체크. 토큰은 이 기기에만 저장돼요.<br>
-        검색·다운로드는 GitHub Actions에서 실행되므로 1~3분 걸려요. 앱을 닫아도 되지만 GitHub는 계속 돌아요.
+        <b>1) GitHub 토큰</b> — Settings → Developer settings → Personal access tokens → Generate new token (classic).
+        <b>workflow</b> 스코프 체크. 토큰은 이 기기에만 저장돼요.<br><br>
+        <b>2) YouTube 쿠키 (PC에서 1회)</b> — GitHub Actions는 데이터센터 IP라 유튜브가
+        "봇 확인"으로 막아요. 로그인 쿠키를 심어야 동작합니다.<br>
+        브라우저에서 YouTube 로그인 후 쿠키를 <code>cookies.txt</code>로 내보내고,
+        저장소에서 <code>./tools/setup_pwa_cookie.sh ~/Downloads/cookies.txt</code> 실행.<br>
+        <span style="color:#b91c1c">쿠키 = 계정 권한. 절대 커밋/공유하지 마세요.</span><br><br>
+        검색·다운로드는 GitHub에서 실행되므로 1~3분 걸려요.
       </p>
     </details>
   </div>
