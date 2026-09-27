@@ -30,7 +30,7 @@ wrangler secret put GH_TOKEN
 
 echo
 echo "==> YTDL_COOKIES_B64 (cookies.txt 를 base64)"
-echo "   먼저 cookies.txt 를 준비했어야 합니다 (tools/README 참고)."
+echo "   먼저 cookies.txt 를 준비했어야 합니다 (tools/setup_pwa_cookie.sh 참고)."
 wrangler secret put YTDL_COOKIES_B64
 
 echo
