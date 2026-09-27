@@ -58,13 +58,15 @@ jobs:
           pip install -q -r requirements.txt
 
       - name: Prepare YouTube cookies
+        if: inputs.mode == 'download'
         env:
           YTDL_COOKIES_B64: ${{ secrets.YTDL_COOKIES_B64 }}
         run: |
           if [ -z "$YTDL_COOKIES_B64" ]; then
-            echo "::error::YTDL_COOKIES_B64 secret is not set. GitHub Actions IPs are bot-blocked"
-            echo "::error::by YouTube, so a cookies.txt export is mandatory for this backend."
+            echo "::error::YTDL_COOKIES_B64 secret is not set. YouTube blocks datacenter IPs"
+            echo "::error::for video-detail fetches, so downloads need a cookies.txt export."
             echo "::error::Run tools/setup_pwa_cookie.sh <cookies.txt> to set it."
+            echo "::notice::검색(flat)은 쿠키 없이 동작합니다."
             exit 1
           fi
           printf '%s' "$YTDL_COOKIES_B64" | base64 -d > "$RUNNER_TEMP/cookies.txt"

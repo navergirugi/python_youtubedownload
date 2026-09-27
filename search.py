@@ -114,9 +114,17 @@ def _is_music_entry(cats: object) -> bool:
 
 
 def youtube_search(
-    query: str, n: int = config.YTSEARCH_N, scope: str = config.DEFAULT_SEARCH_SCOPE
+    query: str,
+    n: int = config.YTSEARCH_N,
+    scope: str = config.DEFAULT_SEARCH_SCOPE,
+    flat: bool = False,
 ) -> list[Candidate]:
-    """scope='music'(기본): 음악 카테고리 우선, 0건이면 전체로 폴백. scope='all': 전체."""
+    """scope='music'(기본): 음악 카테고리 우선, 0건이면 전체로 폴백. scope='all': 전체.
+
+    flat=True는 영상 상세를 요청하지 않는다(InnerTube 검색 1회만). YouTube는
+    데이터센터 IP의 상세 조회를 봇으로 막으므로, PWA 백엔드는 이 모드를 쓴다.
+    대신 categories가 없어 scope 필터가 풀백으로 동작하고, quality 정보도 없다.
+    """
     if scope not in config.SEARCH_SCOPES:
         scope = config.DEFAULT_SEARCH_SCOPE
     fetch_n = n + 10 if scope == "music" else n
@@ -124,7 +132,7 @@ def youtube_search(
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
-        "extract_flat": False,
+        "extract_flat": flat,
         "socket_timeout": 30,
         **config.cookie_opts(),
     }
@@ -137,7 +145,11 @@ def youtube_search(
         if not e:
             continue
         vid = e.get("id", "")
-        url = e.get("webpage_url") or (f"https://www.youtube.com/watch?v={vid}" if vid else "")
+        url = (
+            e.get("webpage_url")
+            or e.get("url")
+            or (f"https://www.youtube.com/watch?v={vid}" if vid else "")
+        )
         if not url:
             continue
         out.append(
@@ -150,10 +162,12 @@ def youtube_search(
             )
         )
         cats.append(e.get("categories") or [])
+    if flat:
+        return out[:n]
     if scope == "music":
         music = [c for c, k in zip(out, cats) if _is_music_entry(k)]
         return (music if music else out)[:n]
-    return out[:n][:n]
+    return out[:n]
 
 
 def format_candidates(cands: list[Candidate]) -> str:

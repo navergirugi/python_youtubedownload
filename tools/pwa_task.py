@@ -43,6 +43,7 @@ def _search() -> None:
     q = search.youtube_search(
         f"{os.environ['ARTIST']} {os.environ['TITLE']}".strip(),
         scope=os.environ.get("SCOPE", "music"),
+        flat=True,
     )
     out = [
         {"title": c.title, "url": c.url, "channel": c.channel, "duration": c.duration_str}
