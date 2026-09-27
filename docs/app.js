@@ -80,14 +80,15 @@ function assetUrl(rel, name) {
   return `https://github.com/${CFG.owner}/${CFG.repo}/releases/download/${rel.tag_name}/${encodeURIComponent(name)}`;
 }
 
-// releases/download 는 CORS 헤더가 없어 fetch()가 실패한다(navergirugi.github.io →
-// github.com). 검색 결과 JSON 은 API 자산 엔드포인트로 읽어야 한다.
-async function fetchAssetJson(asset) {
-  const res = await fetch(asset.url, {
-    headers: { Accept: "application/vnd.github.raw", ...(token() ? { Authorization: `Bearer ${token()}` } : {}) },
-  });
-  if (!res.ok) throw new Error(`결과 읽기 실패 (${res.status})`);
-  return res.json();
+// 검색 결과는 릴리즈 body에 실려 있다(assets는 CORS로 못 읽는다:
+// releases/download 는 CORS 헤더가 없고, assets API 의 octet-stream 도 302 리다이렉트가
+// CORS를 안 준다. 반면 릴리즈 body는 api.github.com 이라 CORS 가 허용되고
+// 이미 waitForRun 이 받아왔다).
+function rowsFromRelease(rel) {
+  if (!rel.body) throw new Error("검색 결과가 릴리즈에 없습니다.");
+  const rows = JSON.parse(rel.body);
+  if (!Array.isArray(rows)) throw new Error("검색 결과 형식이 올바르지 않습니다.");
+  return rows;
 }
 
 async function cleanupRun(rel) {
@@ -122,9 +123,7 @@ async function doSearch() {
   log("검색을 GitHub에 요청했어요. 1~2분 걸려요...");
   await dispatch({ runId, mode: "search", artist, title });
   const rel = await waitForRun(runId);
-  const json = rel.assets.find((a) => a.name.endsWith(".json"));
-  if (!json) throw new Error("결과 파일이 없어요.");
-  const rows = await fetchAssetJson(json);
+  const rows = rowsFromRelease(rel);
   await cleanupRun(rel);
   renderResults(rows, artist, title);
 }

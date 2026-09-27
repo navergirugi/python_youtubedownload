@@ -96,6 +96,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: pwa-${{ inputs.runId }}
+          body_path: ${{ inputs.runId }}.json
           files: |
             ${{ inputs.runId }}.json
             data/audio/*.mp3

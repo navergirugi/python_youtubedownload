@@ -37,6 +37,11 @@ def _guard(fn) -> None:
         _die(f"{type(e).__name__}: {blob[:300]}")
 
 
+def _write_body(payload) -> None:
+    with open(f"{os.environ['RUN_ID']}.json", "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
+
+
 def _search() -> None:
     import search
 
@@ -49,8 +54,7 @@ def _search() -> None:
         {"title": c.title, "url": c.url, "channel": c.channel, "duration": c.duration_str}
         for c in q
     ]
-    with open(f"{os.environ['RUN_ID']}.json", "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False)
+    _write_body(out)
     print("results:", len(out))
 
 
@@ -67,6 +71,7 @@ def _download() -> None:
         path = download.download_video(
             os.environ["URL"], os.environ["ARTIST"], os.environ["TITLE"],
             quality=os.environ["QUALITY"], **kw)
+    _write_body({"downloaded": path})
     print("SAVED:", path)
 
 
