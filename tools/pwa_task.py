@@ -10,6 +10,12 @@ import json
 import os
 import sys
 
+# 이 파일은 tools/에 있으므로 sys.path[0]가 tools/가 된다. CI(python tools/pwa_task.py)
+# 처럼 PYTHONPATH 없이 실행되면 search/download 를 못 찾으므로 저장소 루트를 넣는다.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 
 def _die(msg: str) -> None:
     print(f"::error::{msg}", flush=True)
