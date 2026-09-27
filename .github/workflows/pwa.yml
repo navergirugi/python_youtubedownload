@@ -75,25 +75,10 @@ jobs:
       - name: Run (search)
         if: inputs.mode == 'search'
         env:
-          MODE: ${{ inputs.mode }}
           ARTIST: ${{ inputs.artist }}
           TITLE: ${{ inputs.title }}
           RUN_ID: ${{ inputs.runId }}
-        run: |
-          python - <<'PY'
-          import json, os, search
-          q = search.youtube_search(
-              f"{os.environ['ARTIST']} {os.environ['TITLE']}".strip(),
-              scope="music",
-          )
-          out = [
-              {"title": c.title, "url": c.url, "channel": c.channel, "duration": c.duration_str}
-              for c in q
-          ]
-          with open(f"{os.environ['RUN_ID']}.json", "w", encoding="utf-8") as f:
-              json.dump(out, f, ensure_ascii=False)
-          print("results:", len(out))
-          PY
+        run: python tools/pwa_task.py search
 
       - name: Run (download)
         if: inputs.mode == 'download'
@@ -103,22 +88,7 @@ jobs:
           TITLE: ${{ inputs.title }}
           KIND: ${{ inputs.kind }}
           QUALITY: ${{ inputs.quality }}
-        run: |
-          python - <<'PY'
-          import os, download
-          kw = dict(
-              on_progress=lambda p: print(f"progress {p:.0f}%", flush=True),
-          )
-          if os.environ["KIND"] == "audio":
-              p = download.download_audio(
-                  os.environ["URL"], os.environ["ARTIST"], os.environ["TITLE"],
-                  bitrate=os.environ["QUALITY"], **kw)
-          else:
-              p = download.download_video(
-                  os.environ["URL"], os.environ["ARTIST"], os.environ["TITLE"],
-                  quality=os.environ["QUALITY"], **kw)
-          print("SAVED:", p)
-          PY
+        run: python tools/pwa_task.py download
 
       - name: Publish to per-run release
         uses: softprops/action-gh-release@v2
