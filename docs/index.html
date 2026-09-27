@@ -61,6 +61,12 @@
     background: var(--ok); color: #fff; border-radius: 10px;
     font-weight: 700; text-decoration: none;
   }
+  .banner {
+    background: oklch(0.96 0.05 85); color: oklch(0.42 0.11 55);
+    border: 1px solid oklch(0.85 0.08 75);
+    border-radius: 12px; padding: 11px 13px; margin-bottom: 12px;
+    font-size: 14px; font-weight: 600;
+  }
   details summary { font-size: 13px; color: var(--mut); cursor: pointer; font-weight: 600; }
   .note { font-size: 12px; color: var(--mut); margin-top: 8px; line-height: 1.6; }
 </style>
@@ -68,6 +74,10 @@
 <body>
 <div class="wrap">
   <h1>Music Downloader</h1>
+
+  <div class="banner" id="cookieBanner" hidden>
+    ⚠️ 지금은 <b>다운로드만</b> 잠시 사용할 수 없어요. 검색은 정상 동작합니다. 곧 복구됩니다.
+  </div>
 
   <div class="card">
     <label for="artist">가수명</label>

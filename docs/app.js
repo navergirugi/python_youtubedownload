@@ -10,6 +10,27 @@ const TOKEN_KEY = "md_token";
 let mode = "worker"; // 'worker' | 'github' (Worker 미배포 시 토큰 직접 사용 폴백)
 
 const $ = (id) => document.getElementById(id);
+
+// 쿠키 만료를 사용자에게 미리 알린다(검색은 되고 다운로드만 죽는 상태).
+// 상태는 cookie_watch 워크플로우가 pwa-status 릴리즈 body 에 JSON 으로 남긴다.
+async function showCookieBanner() {
+  const el = $("cookieBanner");
+  if (!el) return;
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/navergirugi/python_youtubedownload/releases/tags/pwa-status"
+    );
+    if (!res.ok) return;
+    const body = (await res.json()).body;
+    if (body && JSON.parse(body).ok === false) {
+      el.hidden = false;
+      return;
+    }
+  } catch {
+    /* 상태 확인 실패는 조용히 무시 */
+  }
+  el.hidden = true;
+}
 const log = (m, cls = "") => {
   const el = $("log");
   el.className = cls;
@@ -207,3 +228,4 @@ $("kind").onchange = () => {
   $("audioOpts").style.display = $("kind").value === "audio" ? "" : "none";
   $("videoOpts").style.display = $("kind").value === "video" ? "" : "none";
 };
+showCookieBanner();
