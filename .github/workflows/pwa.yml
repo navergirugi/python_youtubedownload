@@ -51,10 +51,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install ffmpeg + deps
+      - name: Install ffmpeg + deno + deps
+        # deno 없으면 yt-dlp 가 YouTube 서명(n 파라미터) 을 풀지 못해
+        # 스트림 URL 이 403 Forbidden 으로 끝난다(관측된 실패 모드).
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
+          curl -fsSL https://deno.land/install.sh | sh -s -- -y
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
           pip install -q -r requirements.txt
 
       - name: Prepare YouTube cookies
