@@ -46,18 +46,32 @@ async function dispatch(inputs) {
   );
 }
 
+async function checkRunFailed(runId, sinceIso) {
+  const q = `?per_page=30&event=workflow_dispatch&created=>${encodeURIComponent(sinceIso)}`;
+  const path = `/repos/${CFG.owner}/${CFG.repo}/actions/workflows/${CFG.workflow}/runs${q}`;
+  const data = await api(path);
+  const hit = (data.workflow_runs || []).find((r) => (r.name || "").includes(runId));
+  if (hit && hit.status === "completed" && hit.conclusion !== "success") {
+    const err = new Error(`GitHub 작업 실패 (${hit.conclusion})`);
+    err.runUrl = hit.html_url;
+    throw err;
+  }
+}
+
 async function waitForRun(runId, timeoutMs = 15 * 60 * 1000) {
   const tag = `pwa-${runId}`;
   const started = Date.now();
+  const sinceIso = new Date(started - 60000).toISOString();
   while (Date.now() - started < timeoutMs) {
     await new Promise((r) => setTimeout(r, 5000));
     const mins = Math.round((Date.now() - started) / 60 / 1000);
     log(`GitHub에서 처리 중... ${mins}분 경과`, "muted");
     try {
       return await api(`/repos/${CFG.owner}/${CFG.repo}/releases/tags/${tag}`);
-    } catch {
-      continue;
+    } catch (e) {
+      if (e.runUrl) throw e;
     }
+    await checkRunFailed(runId, sinceIso);
   }
   throw new Error("시간 초과 (15분). GitHub Actions 로그를 확인하세요.");
 }
@@ -73,6 +87,20 @@ async function cleanupRun(rel) {
     });
   } catch {
     /* nightly workflow removes leftovers */
+  }
+}
+
+function failLog(e) {
+  log(`실패: ${e.message}`, "err");
+  if (e.runUrl) {
+    const a = document.createElement("a");
+    a.href = e.runUrl;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.className = "dl";
+    a.style.background = "var(--err)";
+    a.textContent = "GitHub 로그 보기";
+    $("result").replaceChildren(a);
   }
 }
 
@@ -134,11 +162,11 @@ async function doDownload(cand, artist, title) {
     log(`완료: ${file.name} — 누르면 Files 앱으로 저장돼요.`, "ok");
     await cleanupRun(rel);
   } catch (e) {
-    log(`실패: ${e.message}`, "err");
+    failLog(e);
   }
 }
 
-$("btnSearch").onclick = () => doSearch().catch((e) => log(`실패: ${e.message}`, "err"));
+$("btnSearch").onclick = () => doSearch().catch(failLog);
 $("tokenSave").onclick = () => {
   saveToken($("token").value);
   log("토큰 저장됨 (이 기기에만 보관).", "ok");
