@@ -27,7 +27,20 @@ if ! grep -q "youtube.com" "$SRC"; then
 fi
 
 REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
-B64="$(base64 < "$SRC" | tr -d '\n')"
+
+# Chrome 은 모든 도메인의 쿠키를 뽑는다(445KB). Actions 시크릿은 48KB 제한이라
+# 그대로 넣으면 422 로 실패한다. yt-dlp 에 필요한 youtube.com 쿠키만 남긴다.
+FILTERED="$(mktemp)"
+awk -F'\t' 'BEGIN{OFS="\t"} /^#/ {print; next} $1==".youtube.com" || $1=="youtube.com" {print}' "$SRC" > "$FILTERED"
+KEPT="$(grep -vc '^#' "$FILTERED" || true)"
+if [ "${KEPT:-0}" -eq 0 ]; then
+  echo " youtube.com 쿠키가 없습니다. YouTube에 로그인된 브라우저인지 확인하세요." >&2
+  rm -f "$FILTERED"
+  exit 1
+fi
+B64="$(base64 < "$FILTERED" | tr -d '\n')"
+rm -f "$FILTERED"
+echo " youtube 쿠키 ${KEPT}개, base64 ${#B64} 바이트로 저장"
 
 echo "→ $REPO 에 YTDL_COOKIES_B64 저장 (기존 값 덮어씀)"
 printf '%s' "$B64" | gh secret set YTDL_COOKIES_B64 --repo "$REPO"
