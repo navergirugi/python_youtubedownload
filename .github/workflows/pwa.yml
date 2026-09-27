@@ -1,4 +1,5 @@
 name: PWA download API
+run-name: pwa-${{ inputs.runId || 'cleanup' }}
 
 on:
   workflow_dispatch:
