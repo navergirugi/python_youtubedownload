@@ -1,0 +1,51 @@
+name: yt pot probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install yt-dlp + bgutil POT provider
+        run: |
+          pip install -q yt-dlp
+          pip install -q -U "bgutil-ytdlp-pot-provider"
+      - name: Try fetch with POT provider (script mode)
+        run: |
+          python - <<'PY'
+          import subprocess, sys, json, pathlib
+          url = "https://www.youtube.com/watch?v=rJ5iyzjErr8"
+          cfg = pathlib.Path("pot.txt")
+          cfg.write_text("bgutil-ytdlp-pot-provider/script+https://github.com/Brainicism/bgutil-ytdlp-pot-provider/archive/refs/heads/master\n")
+          cmd = [
+              sys.executable, "-m", "yt_dlp",
+              "--extractor-args", "youtube:player_client=web;po_token=web.gvs+@_get_pot",
+              "--skip-download", "--no-warnings", "-j", url,
+          ]
+          env_extra = {"YTDLP_POT_PROVIDER_SCRIPT": "1"}
+          import os
+          env = {**os.environ, **env_extra}
+          try:
+              p = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+              blob = p.stdout + p.stderr
+              if p.returncode == 0 and '"url"' in blob:
+                  print("VERDICT=OK")
+              elif "not a bot" in blob:
+                  print("VERDICT=BOTBLOCK")
+              else:
+                  print("VERDICT=OTHER " + blob.strip()[:200])
+          except Exception as e:
+              print("VERDICT=EXC " + repr(e)[:200])
+          print("--- plugins seen ---")
+          q = subprocess.run([sys.executable, "-m", "yt_dlp", "--verbose"], capture_output=True, text=True, timeout=120)
+          for line in (q.stdout + q.stderr).splitlines():
+              if "plugin" in line.lower():
+                  print("  " + line.strip()[:160])
+          PY
