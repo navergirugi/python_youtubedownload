@@ -1,11 +1,4 @@
-const CFG = {
-  owner: "navergirugi",
-  repo: "python_youtubedownload",
-  workflow: "pwa.yml",
-  branch: "master",
-};
-
-const TOKEN_KEY = "md_token";
+const API = "https://musicdownloader-api.workers.dev";
 const $ = (id) => document.getElementById(id);
 const log = (m, cls = "") => {
   const el = $("log");
@@ -14,91 +7,37 @@ const log = (m, cls = "") => {
 };
 const newRunId = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-
-function token() {
-  return localStorage.getItem(TOKEN_KEY) || "";
-}
-function saveToken(v) {
-  localStorage.setItem(TOKEN_KEY, v.trim());
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function api(path, opts = {}) {
-  const res = await fetch(`https://api.github.com${path}`, {
+  const res = await fetch(API + path, {
     ...opts,
-    headers: {
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
-      ...(opts.headers || {}),
-    },
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
   });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`GitHub ${res.status}: ${t.slice(0, 160)}`);
-  }
-  return res.status === 204 ? null : res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
+  return data;
 }
 
 async function dispatch(inputs) {
-  await api(
-    `/repos/${CFG.owner}/${CFG.repo}/actions/workflows/${CFG.workflow}/dispatches`,
-    { method: "POST", body: JSON.stringify({ ref: CFG.branch, inputs }) }
-  );
-}
-
-async function checkRunFailed(runId, sinceIso) {
-  const q = `?per_page=30&event=workflow_dispatch&created=>${encodeURIComponent(sinceIso)}`;
-  const path = `/repos/${CFG.owner}/${CFG.repo}/actions/workflows/${CFG.workflow}/runs${q}`;
-  const data = await api(path);
-  const hit = (data.workflow_runs || []).find((r) => (r.name || "").includes(runId));
-  if (hit && hit.status === "completed" && hit.conclusion !== "success") {
-    const err = new Error(`GitHub 작업 실패 (${hit.conclusion})`);
-    err.runUrl = hit.html_url;
-    throw err;
-  }
+  await api("/api/run", { method: "POST", body: JSON.stringify(inputs) });
 }
 
 async function waitForRun(runId, timeoutMs = 15 * 60 * 1000) {
-  const tag = `pwa-${runId}`;
   const started = Date.now();
-  const sinceIso = new Date(started - 60000).toISOString();
   while (Date.now() - started < timeoutMs) {
-    await new Promise((r) => setTimeout(r, 5000));
-    const mins = Math.round((Date.now() - started) / 60 / 1000);
-    log(`GitHub에서 처리 중... ${mins}분 경과`, "muted");
-    try {
-      return await api(`/repos/${CFG.owner}/${CFG.repo}/releases/tags/${tag}`);
-    } catch (e) {
-      if (e.runUrl) throw e;
+    await sleep(5000);
+    const r = await api(`/api/run/${runId}`);
+    if (r.status === "done") return r;
+    if (r.status === "failed") {
+      const e = new Error(r.error || "작업 실패");
+      e.runUrl = r.runUrl;
+      throw e;
     }
-    await checkRunFailed(runId, sinceIso);
+    const mins = Math.round((Date.now() - started) / 60000);
+    log(`처리 중... ${mins}분 경과`, "muted");
   }
-  throw new Error("시간 초과 (15분). GitHub Actions 로그를 확인하세요.");
-}
-
-function assetUrl(rel, name) {
-  return `https://github.com/${CFG.owner}/${CFG.repo}/releases/download/${rel.tag_name}/${encodeURIComponent(name)}`;
-}
-
-// 검색 결과는 릴리즈 body에 실려 있다(assets는 CORS로 못 읽는다:
-// releases/download 는 CORS 헤더가 없고, assets API 의 octet-stream 도 302 리다이렉트가
-// CORS를 안 준다. 반면 릴리즈 body는 api.github.com 이라 CORS 가 허용되고
-// 이미 waitForRun 이 받아왔다).
-function rowsFromRelease(rel) {
-  if (!rel.body) throw new Error("검색 결과가 릴리즈에 없습니다.");
-  const rows = JSON.parse(rel.body);
-  if (!Array.isArray(rows)) throw new Error("검색 결과 형식이 올바르지 않습니다.");
-  return rows;
-}
-
-async function cleanupRun(rel) {
-  try {
-    await api(`/repos/${CFG.owner}/${CFG.repo}/releases/${rel.id}`, {
-      method: "DELETE",
-    });
-  } catch {
-    /* nightly workflow removes leftovers */
-  }
+  throw new Error("시간 초과 (15분).");
 }
 
 function failLog(e) {
@@ -120,12 +59,10 @@ async function doSearch() {
   const title = $("title").value.trim();
   if (!artist && !title) return log("가수명 또는 제목을 입력하세요.", "err");
   const runId = newRunId();
-  log("검색을 GitHub에 요청했어요. 1~2분 걸려요...");
+  log("검색을 요청했어요. 1~2분 걸려요...");
   await dispatch({ runId, mode: "search", artist, title });
-  const rel = await waitForRun(runId);
-  const rows = rowsFromRelease(rel);
-  await cleanupRun(rel);
-  renderResults(rows, artist, title);
+  const r = await waitForRun(runId);
+  renderResults(r.rows || [], artist, title);
 }
 
 function renderResults(rows, artist, title) {
@@ -158,31 +95,20 @@ async function doDownload(cand, artist, title) {
   log(`"${title}" 다운로드 시작. 1~3분 걸려요...`);
   try {
     await dispatch({ runId, mode: "download", url: cand.url, artist, title, kind, quality });
-    const rel = await waitForRun(runId);
-    const file = rel.assets.find(
-      (a) => !a.name.endsWith(".json") && /\.(mp3|mp4|m4a|webm)$/i.test(a.name)
-    );
-    if (!file) throw new Error("완료된 파일이 없어요. Actions 로그를 확인하세요.");
+    const r = await waitForRun(runId);
     const a = document.createElement("a");
-    a.href = assetUrl(rel, file.name);
+    a.href = r.downloadUrl;
     a.className = "dl";
-    a.textContent = `⬇ ${file.name}`;
+    a.textContent = `⬇ ${r.filename}`;
     $("result").replaceChildren(a);
-    log(`완료: ${file.name} — 누르면 Files 앱으로 저장돼요.`, "ok");
-    await cleanupRun(rel);
+    log(`완료: ${r.filename} — 누르면 Files 앱으로 저장돼요.`, "ok");
   } catch (e) {
     failLog(e);
   }
 }
 
 $("btnSearch").onclick = () => doSearch().catch(failLog);
-$("tokenSave").onclick = () => {
-  saveToken($("token").value);
-  log("토큰 저장됨 (이 기기에만 보관).", "ok");
-};
-$("token").value = token();
 $("kind").onchange = () => {
   $("audioOpts").style.display = $("kind").value === "audio" ? "" : "none";
   $("videoOpts").style.display = $("kind").value === "video" ? "" : "none";
 };
-if (!token()) log("첫 실행: 아래에 GitHub 토큰을 붙여넣고 저장을 눌러주세요.", "muted");

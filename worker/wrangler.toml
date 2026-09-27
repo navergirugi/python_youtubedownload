@@ -1,0 +1,11 @@
+name = "musicdownloader-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Pages origin that may call this Worker.
+[vars]
+ALLOWED_ORIGIN = "https://navergirugi.github.io"
+
+# Secrets (set with `wrangler secret put <NAME>`):
+#   GH_TOKEN          GitHub PAT (classic) with `workflow` + `repo` scope
+#   YTDL_COOKIES_B64  base64 of cookies.txt (already used by pwa.yml)
