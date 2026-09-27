@@ -107,15 +107,24 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
+      # gh 는 git 저장소 컨텍스트가 없으면 실패하고, 그 실패가 파이프에 삼켜져
+      # 잡이 성공한 것처럼 보인다(릴리즈가 영원히 안 지워짐). checkout 필수.
+      - uses: actions/checkout@v4
+
       - name: Remove stale pwa-* releases (older than 3 days)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release list --limit 200 --json tagName,createdAt \
-            | jq -r '.[] | select(.tagName | startswith("pwa-")) | .tagName' \
-            > /tmp/tags.txt
-          while read -r tag; do
+          set -euo pipefail
+          REPO="navergirugi/python_youtubedownload"
+          TAGS="$(gh release list --repo "$REPO" --limit 200 --json tagName \
+            | jq -r '.[] | select(.tagName | startswith("pwa-")) | .tagName')"
+          if [ -z "$TAGS" ]; then
+            echo "pwa-* 릴리즈 없음."
+            exit 0
+          fi
+          echo "$TAGS" | while read -r tag; do
             [ -z "$tag" ] && continue
             echo "deleting $tag"
-            gh release delete "$tag" --yes --cleanup-tag || true
-          done < /tmp/tags.txt
+            gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag || true
+          done
