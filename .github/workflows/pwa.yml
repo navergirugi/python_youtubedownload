@@ -129,22 +129,3 @@ jobs:
             echo "deleting $tag"
             gh release delete "$tag" --yes --cleanup-tag || true
           done < /tmp/tags.txt
-
-  deploy-pages:
-    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.dep.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web
-      - id: dep
-        uses: actions/deploy-pages@v4
