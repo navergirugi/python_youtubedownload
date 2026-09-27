@@ -1,0 +1,52 @@
+name: yt client download probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install ffmpeg + deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install -q -r requirements.txt
+      - name: Prepare cookies
+        env:
+          YTDL_COOKIES_B64: ${{ secrets.YTDL_COOKIES_B64 }}
+        run: |
+          printf '%s' "$YTDL_COOKIES_B64" | base64 -d > "$RUNNER_TEMP/cookies.txt"
+      - name: Real download per player_client
+        env:
+          CK: ${{ runner.temp }}/cookies.txt
+        run: |
+          python - <<'PY'
+          import glob, os, subprocess, sys
+          ck = os.environ["CK"]
+          url = "https://www.youtube.com/watch?v=rJ5iyzjErr8"
+          for client in ("web", "web_safari", "mweb", "tv", "android", "ios"):
+              out = f"/tmp/dl-{client}.%(ext)s"
+              cmd = [sys.executable, "-m", "yt_dlp", "--cookies", ck,
+                     "--extractor-args", f"youtube:player_client={client}",
+                     "-f", "bestaudio/best", "-o", out, "--no-playlist", url]
+              try:
+                  p = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+              except subprocess.TimeoutExpired:
+                  print(f"RESULT {client}=TIMEOUT")
+                  continue
+              files = [f for f in glob.glob(f"/tmp/dl-{client}.*") if os.path.getsize(f) > 10000]
+              blob = p.stdout + p.stderr
+              if files:
+                  print(f"RESULT {client}=OK bytes={os.path.getsize(files[0])}")
+              elif "not a bot" in blob:
+                  print(f"RESULT {client}=BOTCHECK")
+              elif "403" in blob:
+                  print(f"RESULT {client}=403")
+              else:
+                  print(f"RESULT {client}=OTHER {blob.strip()[-110:]}")
+          PY
