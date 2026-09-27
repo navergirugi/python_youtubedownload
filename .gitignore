@@ -34,3 +34,6 @@ data/
 # OS junk
 .DS_Store
 .Rhistory
+# YouTube 쿠키 (자격증명, 절대 커밋 금지)
+cookies.txt
+*.cookies.txt
