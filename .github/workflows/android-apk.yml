@@ -38,7 +38,8 @@ jobs:
       - name: Install Android platform + build-tools
         # ubuntu runner ships an SDK already; just ensure API 34 pieces exist.
         # (android-actions/setup-android@v3 fails on current images: obsolete `tools` package.)
-        run: "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+        run: |
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Build Debug APK
         if: ${{ hashFiles('android/gradlew') != '' }}
