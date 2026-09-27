@@ -32,16 +32,13 @@ jobs:
       - name: Set up Gradle (wrapper validation + caching)
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          ndk-version: r27c
-          build-tools-version: 34.0.0
-          cmdline-tools-version: latest
-
       - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses
+        run: yes | sdkmanager --licenses > /dev/null
+
+      - name: Install Android platform + build-tools
+        # ubuntu runner ships an SDK already; just ensure API 34 pieces exist.
+        # (android-actions/setup-android@v3 fails on current images: obsolete `tools` package.)
+        run: sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Build Debug APK
         if: ${{ hashFiles('android/gradlew') != '' }}
