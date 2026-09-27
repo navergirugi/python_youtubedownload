@@ -53,3 +53,8 @@ cd worker && node test/worker.test.mjs   # fetch mock, 18 assertions
 - `YTDL_COOKIES_B64`은 유튜브 쿠키 만료 시(보통 몇 주) 갱신한다.
   안 갱신하면 **다운로드만** 전체 실패하고 검색은 된다
 - 검색 릴리즈는 클라이언트가 즉시 삭제하지만, 실패한 런은 야간 워크플로우가 정리한다
+- **IP별 시간당 12회 제한**이 걸려 있다. 다운로드가 소유자의 YouTube 계정
+  세션을 쓰기 때문에, 남용되면 그 계정이 밴당된다. 아이솔레이트 메모리
+  기준이라 우의도성 남용 방어용이고, 확실한 방어선이 필요하면 Cloudflare
+  Rate Limiting Rules(유료)를 앞단에 두면 된다
+

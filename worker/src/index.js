@@ -67,6 +67,30 @@ function downloadUrl(tag, name) {
   return `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${tag}/${encodeURIComponent(name)}`;
 }
 
+// 이 Worker 는 공개 엔드포인트이고, 실행되는 다운로드가 소유자의 YouTube 계정
+// 세션을 쓴다. 남이 일부러 남용하면 그 계정이 밴당되므로 IP 별 요청 수를 제한한다.
+// (Worker 아이솔레이트 메모리 기준이라 완벽하진 않지만 우의도성 남용은 막는다.)
+const BUCKETS = new Map();
+const WINDOW_MS = 60 * 60 * 1000;
+const MAX_RUNS_PER_WINDOW = 12;
+
+function rateLimited(ip) {
+  const now = Date.now();
+  const hits = (BUCKETS.get(ip) || []).filter((t) => now - t < WINDOW_MS);
+  if (hits.length >= MAX_RUNS_PER_WINDOW) {
+    BUCKETS.set(ip, hits);
+    return true;
+  }
+  hits.push(now);
+  BUCKETS.set(ip, hits);
+  if (BUCKETS.size > 5000) {
+    for (const [k, v] of BUCKETS) {
+      if (!v.some((t) => now - t < WINDOW_MS)) BUCKETS.delete(k);
+    }
+  }
+  return false;
+}
+
 async function poll(runId, env) {
   const run = await findRun(runId, env);
   if (run && run.status === "completed" && run.conclusion !== "success") {
@@ -110,6 +134,10 @@ export default {
         return reply({ error: "JSON 파싱 실패" }, 400, env);
       }
       if (!b.runId) return reply({ error: "runId 누락" }, 400, env);
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      if (rateLimited(ip)) {
+        return reply({ error: "요청이 너무 많습니다. 1시간 뒤에 다시 시도해 주세요." }, 429, env);
+      }
       const r = await dispatch(b.runId, {
         runId: String(b.runId),
         mode: b.mode === "download" ? "download" : "search",

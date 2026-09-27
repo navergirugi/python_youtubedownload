@@ -117,5 +117,30 @@ console.log("7) CORS preflight + GH_TOKEN missing");
   check("500 without GH_TOKEN", res.status === 500, String(res.status));
 }
 
+console.log("8) rate limit: 13th run from same IP is rejected");
+{
+  mockFetch([{ match: dispatchOk, reply: () => json({}, 204) }]);
+  const fire = (ip, runId) =>
+    worker.fetch(
+      new Request("https://w.example/api/run", {
+        method: "POST",
+        headers: { "CF-Connecting-IP": ip },
+        body: JSON.stringify({ runId }),
+      }),
+      ENV
+    );
+  const statuses = [];
+  for (let i = 1; i <= 13; i++) statuses.push((await fire("10.0.0.1", `r${i}`)).status);
+  check("first 12 allowed", statuses.slice(0, 12).every((s) => s === 200), statuses.join(","));
+  check("13th is 429", statuses[12] === 429, String(statuses[12]));
+  const other = await fire("10.0.0.2", "rX");
+  check("different IP unaffected", other.status === 200, String(other.status));
+  const b = await (await worker.fetch(
+    new Request("https://w.example/api/run", { method: "POST", headers: { "CF-Connecting-IP": "10.0.0.1" }, body: JSON.stringify({ runId: "rY" }) }),
+    ENV
+  )).json();
+  check("429 message is Korean", /너무 많/.test(b.error || ""), String(b.error));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
