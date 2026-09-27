@@ -1,4 +1,14 @@
 const API = "https://musicdownloader-api.workers.dev";
+const GH = {
+  owner: "navergirugi",
+  repo: "python_youtubedownload",
+  workflow: "pwa.yml",
+  branch: "master",
+};
+
+const TOKEN_KEY = "md_token";
+let mode = "worker"; // 'worker' | 'github' (Worker 미배포 시 토큰 직접 사용 폴백)
+
 const $ = (id) => document.getElementById(id);
 const log = (m, cls = "") => {
   const el = $("log");
@@ -9,35 +19,116 @@ const newRunId = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function api(path, opts = {}) {
-  const res = await fetch(API + path, {
-    ...opts,
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-  });
+const token = () => localStorage.getItem(TOKEN_KEY) || "";
+
+function useTokenMode() {
+  if (mode === "github") return;
+  mode = "github";
+  $("tokenPanel").hidden = false;
+  $("token").value = token();
+}
+
+async function workerCall(path, opts) {
+  let res;
+  try {
+    res = await fetch(API + path, {
+      ...opts,
+      headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+    });
+  } catch {
+    useTokenMode();
+    return null;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
   return data;
 }
 
+async function ghApi(path, opts = {}) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    ...opts,
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.text()).slice(0, 140)}`);
+  return res.status === 204 ? null : res.json();
+}
+
 async function dispatch(inputs) {
-  await api("/api/run", { method: "POST", body: JSON.stringify(inputs) });
+  if (mode === "worker") {
+    const r = await workerCall("/api/run", { method: "POST", body: JSON.stringify(inputs) });
+    if (r) return;
+  }
+  await ghApi(`/repos/${GH.owner}/${GH.repo}/actions/workflows/${GH.workflow}/dispatches`, {
+    method: "POST",
+    body: JSON.stringify({ ref: GH.branch, inputs }),
+  });
 }
 
 async function waitForRun(runId, timeoutMs = 15 * 60 * 1000) {
   const started = Date.now();
+  const since = new Date(started - 60000).toISOString();
   while (Date.now() - started < timeoutMs) {
     await sleep(5000);
-    const r = await api(`/api/run/${runId}`);
-    if (r.status === "done") return r;
-    if (r.status === "failed") {
-      const e = new Error(r.error || "작업 실패");
-      e.runUrl = r.runUrl;
-      throw e;
+    if (mode === "worker") {
+      const r = await workerCall(`/api/run/${runId}`);
+      if (r) {
+        if (r.status === "done") return r;
+        if (r.status === "failed") {
+          const e = new Error(r.error || "작업 실패");
+          e.runUrl = r.runUrl;
+          throw e;
+        }
+      }
+    } else {
+      const r = await ghPoll(runId, since);
+      if (r) return r;
     }
-    const mins = Math.round((Date.now() - started) / 60000);
-    log(`처리 중... ${mins}분 경과`, "muted");
+    log(`처리 중... ${Math.round((Date.now() - started) / 60000)}분 경과`, "muted");
   }
   throw new Error("시간 초과 (15분).");
+}
+
+async function ghPoll(runId, sinceIso) {
+  const runs = await ghApi(
+    `/repos/${GH.owner}/${GH.repo}/actions/workflows/${GH.workflow}/runs` +
+      `?per_page=30&event=workflow_dispatch&created=>${encodeURIComponent(sinceIso)}`
+  );
+  const hit = (runs.workflow_runs || []).find((r) => (r.name || "").includes(runId));
+  if (hit && hit.status === "completed" && hit.conclusion !== "success") {
+    const e = new Error(`GitHub 작업 실패 (${hit.conclusion})`);
+    e.runUrl = hit.html_url;
+    throw e;
+  }
+  let rel;
+  try {
+    rel = await ghApi(`/repos/${GH.owner}/${GH.repo}/releases/tags/pwa-${runId}`);
+  } catch {
+    return null;
+  }
+  let body;
+  try {
+    body = rel.body ? JSON.parse(rel.body) : {};
+  } catch {
+    return null;
+  }
+  if (Array.isArray(body)) {
+    await ghApi(`/repos/${GH.owner}/${GH.repo}/releases/${rel.id}`, { method: "DELETE" }).catch(() => {});
+    return { status: "done", rows: body };
+  }
+  if (body.downloaded) {
+    const name = body.downloaded.split("/").pop();
+    return {
+      status: "done",
+      filename: name,
+      downloadUrl: `https://github.com/${GH.owner}/${GH.repo}/releases/download/${rel.tag_name}/${encodeURIComponent(name)}`,
+    };
+  }
+  return null;
 }
 
 function failLog(e) {
@@ -108,6 +199,10 @@ async function doDownload(cand, artist, title) {
 }
 
 $("btnSearch").onclick = () => doSearch().catch(failLog);
+$("tokenSave").onclick = () => {
+  localStorage.setItem(TOKEN_KEY, $("token").value.trim());
+  log("토큰 저장됨 (이 기기에만 보관).", "ok");
+};
 $("kind").onchange = () => {
   $("audioOpts").style.display = $("kind").value === "audio" ? "" : "none";
   $("videoOpts").style.display = $("kind").value === "video" ? "" : "none";

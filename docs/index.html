@@ -96,6 +96,17 @@
 
   <div id="results"></div>
 
+  <div class="card" id="tokenPanel" hidden>
+    <label for="token">GitHub Personal Access Token</label>
+    <input id="token" type="password" placeholder="ghp_..." autocomplete="off">
+    <button id="tokenSave">토큰 저장</button>
+    <p class="note">
+      서버 연결이 안 돼 GitHub 직접 모드로 전환했어요.
+      <b>workflow</b> 스코프가 있는 토큰이 필요합니다.<br>
+      토큰은 이 기기(localStorage)에만 저장돼요.
+    </p>
+  </div>
+
   <div class="card">
     <p class="note">
       검색·다운로드는 서버에서 처리되므로 1~3분 걸려요. 기다리는 동안 다른 화면을 봐도 돼요.
