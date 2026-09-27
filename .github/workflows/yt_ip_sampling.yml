@@ -1,0 +1,35 @@
+name: yt ip sampling
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q -r requirements.txt
+      - name: Attempt search
+        run: |
+          python - <<'PY'
+          import subprocess, sys
+          url = "https://www.youtube.com/watch?v=rJ5iyzjErr8"
+          p = subprocess.run(
+              [sys.executable, "-m", "yt_dlp", "--skip-download", "--no-warnings", "-j", url],
+              capture_output=True, text=True, timeout=240,
+          )
+          blob = p.stdout + p.stderr
+          if p.returncode == 0 and '"url"' in blob:
+              print("VERDICT=OK")
+          elif "not a bot" in blob:
+              print("VERDICT=BOTBLOCKED")
+          else:
+              print("VERDICT=OTHER " + blob.strip()[:100])
+          PY
