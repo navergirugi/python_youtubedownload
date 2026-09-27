@@ -80,6 +80,16 @@ function assetUrl(rel, name) {
   return `https://github.com/${CFG.owner}/${CFG.repo}/releases/download/${rel.tag_name}/${encodeURIComponent(name)}`;
 }
 
+// releases/download 는 CORS 헤더가 없어 fetch()가 실패한다(navergirugi.github.io →
+// github.com). 검색 결과 JSON 은 API 자산 엔드포인트로 읽어야 한다.
+async function fetchAssetJson(asset) {
+  const res = await fetch(asset.url, {
+    headers: { Accept: "application/vnd.github.raw", ...(token() ? { Authorization: `Bearer ${token()}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`결과 읽기 실패 (${res.status})`);
+  return res.json();
+}
+
 async function cleanupRun(rel) {
   try {
     await api(`/repos/${CFG.owner}/${CFG.repo}/releases/${rel.id}`, {
@@ -114,7 +124,7 @@ async function doSearch() {
   const rel = await waitForRun(runId);
   const json = rel.assets.find((a) => a.name.endsWith(".json"));
   if (!json) throw new Error("결과 파일이 없어요.");
-  const rows = await (await fetch(assetUrl(rel, json.name))).json();
+  const rows = await fetchAssetJson(json);
   await cleanupRun(rel);
   renderResults(rows, artist, title);
 }
