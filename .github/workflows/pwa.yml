@@ -1,0 +1,150 @@
+name: PWA download API
+
+on:
+  workflow_dispatch:
+    inputs:
+      runId:
+        description: 'client-generated id (PWA)'
+        required: true
+      mode:
+        description: 'search | download'
+        required: true
+        default: search
+      artist:
+        description: ''
+        required: false
+        default: ''
+      title:
+        description: ''
+        required: false
+        default: ''
+      kind:
+        description: 'audio | video'
+        required: false
+        default: audio
+      quality:
+        description: '128/192/320 or 360p/720p/1080p/best'
+        required: false
+        default: '192'
+      url:
+        description: 'youtube url (mode=download)'
+        required: false
+        default: ''
+
+  schedule:
+    # nightly cleanup of pwa-* releases the client failed to delete
+    - cron: '23 3 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ffmpeg + deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install -q -r requirements.txt
+
+      - name: Run (search)
+        if: inputs.mode == 'search'
+        env:
+          MODE: ${{ inputs.mode }}
+          ARTIST: ${{ inputs.artist }}
+          TITLE: ${{ inputs.title }}
+          RUN_ID: ${{ inputs.runId }}
+        run: |
+          python - <<'PY'
+          import json, os, search
+          q = search.youtube_search(
+              f"{os.environ['ARTIST']} {os.environ['TITLE']}".strip(),
+              scope="music",
+          )
+          out = [
+              {"title": c.title, "url": c.url, "channel": c.channel, "duration": c.duration_str}
+              for c in q
+          ]
+          with open(f"{os.environ['RUN_ID']}.json", "w", encoding="utf-8") as f:
+              json.dump(out, f, ensure_ascii=False)
+          print("results:", len(out))
+          PY
+
+      - name: Run (download)
+        if: inputs.mode == 'download'
+        env:
+          URL: ${{ inputs.url }}
+          ARTIST: ${{ inputs.artist }}
+          TITLE: ${{ inputs.title }}
+          KIND: ${{ inputs.kind }}
+          QUALITY: ${{ inputs.quality }}
+        run: |
+          python - <<'PY'
+          import os, download
+          kw = dict(
+              on_progress=lambda p: print(f"progress {p:.0f}%", flush=True),
+          )
+          if os.environ["KIND"] == "audio":
+              p = download.download_audio(
+                  os.environ["URL"], os.environ["ARTIST"], os.environ["TITLE"],
+                  bitrate=os.environ["QUALITY"], **kw)
+          else:
+              p = download.download_video(
+                  os.environ["URL"], os.environ["ARTIST"], os.environ["TITLE"],
+                  quality=os.environ["QUALITY"], **kw)
+          print("SAVED:", p)
+          PY
+
+      - name: Publish to per-run release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pwa-${{ inputs.runId }}
+          files: |
+            ${{ inputs.runId }}.json
+            data/audio/*.mp3
+            data/video/*.mp4
+          fail_on_unmatched_files: false
+          generate_release_notes: false
+
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove stale pwa-* releases (older than 3 days)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 200 --json tagName,createdAt \
+            | jq -r '.[] | select(.tagName | startswith("pwa-")) | .tagName' \
+            > /tmp/tags.txt
+          while read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "deleting $tag"
+            gh release delete "$tag" --yes --cleanup-tag || true
+          done < /tmp/tags.txt
+
+  deploy-pages:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.dep.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: dep
+        uses: actions/deploy-pages@v4

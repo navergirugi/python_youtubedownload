@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Music">
+<title>Music Downloader</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #f1f5f9; --card: #fff; --ink: #0f172a; --mut: #64748b;
+    --line: #e2e8f0; --pri: #4f46e5; --pri-d: #4338ca; --ok: #15803d; --err: #b91c1c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, "SF Pro KR", system-ui, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  .wrap { max-width: 620px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 800; margin: 8px 0 16px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 14px; margin-bottom: 12px;
+  }
+  label { display: block; font-size: 12px; color: var(--mut); margin: 10px 0 4px; font-weight: 600; }
+  input, select {
+    width: 100%; padding: 11px 12px; font-size: 16px; font-family: inherit;
+    border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: var(--ink);
+  }
+  input:focus, select:focus { outline: 2px solid var(--pri); outline-offset: -1px; }
+  button {
+    width: 100%; margin-top: 12px; padding: 13px; font-size: 16px; font-weight: 700;
+    font-family: inherit; color: #fff; background: var(--pri);
+    border: none; border-radius: 10px; cursor: pointer;
+  }
+  button:active { background: var(--pri-d); }
+  .two { display: flex; gap: 10px; }
+  .two > div { flex: 1; }
+  #log { margin: 10px 2px; font-size: 14px; min-height: 20px; }
+  #log.muted { color: var(--mut); }
+  #log.ok { color: var(--ok); font-weight: 600; }
+  #log.err { color: var(--err); font-weight: 600; }
+  .row {
+    display: block; width: 100%; text-align: left; margin: 0 0 8px;
+    padding: 11px 12px; background: #f8fafc; border: 1px solid var(--line);
+    border-radius: 11px; color: var(--ink); font-weight: 400;
+  }
+  .row:active { background: #eef2ff; }
+  .row .t { display: block; font-weight: 600; font-size: 15px; }
+  .row .m { display: block; font-size: 13px; color: var(--mut); margin-top: 2px; }
+  .row .u {
+    display: block; font-size: 11px; color: var(--pri);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px;
+  }
+  .dl {
+    display: block; text-align: center; margin-top: 10px; padding: 13px;
+    background: var(--ok); color: #fff; border-radius: 10px;
+    font-weight: 700; text-decoration: none;
+  }
+  details summary { font-size: 13px; color: var(--mut); cursor: pointer; font-weight: 600; }
+  .note { font-size: 12px; color: var(--mut); margin-top: 8px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Music Downloader</h1>
+
+  <div class="card">
+    <label for="artist">가수명</label>
+    <input id="artist" placeholder="아이유" autocomplete="off">
+    <label for="title">제목</label>
+    <input id="title" placeholder="Celebrity" autocomplete="off">
+    <label for="kind">종류</label>
+    <select id="kind">
+      <option value="audio">음원 (MP3)</option>
+      <option value="video">영상 (MP4)</option>
+    </select>
+    <div class="two">
+      <div id="audioOpts">
+        <label for="abr">비트레이트</label>
+        <select id="abr"><option>128</option><option selected>192</option><option>320</option></select>
+      </div>
+      <div id="videoOpts" style="display:none">
+        <label for="vres">화질</label>
+        <select id="vres"><option>360p</option><option selected>720p</option><option>1080p</option><option>best</option></select>
+      </div>
+    </div>
+    <button id="btnSearch">🔍 검색</button>
+    <div id="log"></div>
+    <div id="result"></div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="card">
+    <details>
+      <summary>설정 (GitHub 토큰)</summary>
+      <label for="token">Personal Access Token</label>
+      <input id="token" type="password" placeholder="ghp_..." autocomplete="off">
+      <button id="tokenSave">토큰 저장</button>
+      <p class="note">
+        GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic).
+        <b>workflow</b> 스코프 체크. 토큰은 이 기기에만 저장돼요.<br>
+        검색·다운로드는 GitHub Actions에서 실행되므로 1~3분 걸려요. 앱을 닫아도 되지만 GitHub는 계속 돌아요.
+      </p>
+    </details>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
