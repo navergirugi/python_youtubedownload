@@ -1,110 +1,222 @@
-# iPad 설치 가이드
+# iPad 앱 — 구동 방법과 갱신 방법
 
-iPad에 이 앱을 쓰는 방법입니다. **결제 필요 없음, 서버 불필요, 맥은 최초 설치에만 필요.**
-
-왜 이게 되는지는 [왜 서버가 필요 없는가](#왜-서버가-필요-없는가)를 보세요.
+Music Downloader 를 iPad 에 넣고, 나중에 맥에서 새 버전으로 갈아끼우는 방법입니다.
 
 ---
 
-## 핵심 원리
+## ⚠️ 현재 상태 (먼저 읽어주세요)
 
-유튜브는 **데이터센터 IP**(클라우드, VPS)에서 오는 다운로드를 막습니다. 그래서 서버에 올리면 실패합니다.
+| 항목 | 상태 |
+|---|---|
+| Xcode 빌드 (시뮬레이터) | ✅ **검증됨** |
+| 앱 안에서 Python 3.14 구동 | ✅ **검증됨** |
+| 앱 안에서 `yt-dlp` import | ✅ **검증됨** (`yt-dlp 2026.08.19`) |
+| 앱 화면 (4탭 UI) | ✅ 빌드됨 |
+| 앱에서 실제 검색 | ❌ **미완료** — `Engine` 이 스텁이라 아직 연결 전 |
+| 앱에서 실제 다운로드 | ❌ **미완료** |
+| MP3 변환 (ffmpeg) | ❌ **미완료** |
+| **실제 iPad 설치** | ❌ **미검증** — 기기에 넣어본 적 없음 |
+| 7일 만료 재서명 | ❌ **미검증** |
 
-반면 **iPad 자체의 IP는 residential(집·통신사 회선)**이라 정상적으로 다운로드됩니다.
+**즉 지금은 "설치하면 끝"인 상태가 아닙니다.** 아래 절차는 실제 기기에서 한 번도
+돌려보지 않은 경로입니다. 진행하면서 막히면 이 문서를 고치면서 갱신하겠습니다.
+
+검증된 것은 이것 하나입니다:
+
+```
+# 시뮬레이터에서 앱 실행 후 앱 컨테이너의 Documents/engine_status.txt
+PYTHON_OK yt-dlp=2026.08.19
+```
+
+앱이 크래시하지 않고 Python·yt-dlp 를 실제로 로드한다는 것까지는 확인됐습니다.
+
+---
+
+## 구조 — 왜 서버가 필요 없는가
+
+유튜브는 **데이터센터 IP**(클라우드, VPS)에서 오는 다운로드를 막습니다. 서버에 올리는
+방식은 그래서 실패했고, 남은 조건은 "다운로드를 실행하는 기기가 residential IP 를 갖고
+있다"였습니다.
+
+**iPad 의 IP 는 residential 이므로 iPad 에서 직접 받으면 서버가 필요 없습니다.**
 
 ```
 iPad (residential IP)
-  └─ yt-dlp가 기기 안에서 직접 실행
-       └─ YouTube에서 MP3 다운로드 → Files 앱에 저장
+  └─ Python (XCFramework)      SwiftUI 가 PythonKit 으로 호출
+       └─ yt-dlp               데스크톱과 동일한 엔진
+            └─ MP3 변환         ffmpeg (아직 미통합)
+                 └─ Documents 폴더에 저장
 ```
-
-서버가 개입하지 않으므로 맥을 꺼도, 집 밖에서도 동작합니다.
-
----
-
-## 준비물
 
 | | |
 |---|---|
-| Mac | **최초 설치 시 1회만** 필요 (설치 후 완전 종료) |
-| Apple ID | **무료 계정으로 충분** (Developer 계정 $99 불필요) |
-| USB 케이블 | 최초 페어링 시만 |
+| 서버 | 없음 |
+| 맥 | 최초 설치 시에만 필요 |
+| 비용 | 0원 |
+| 집 밖에서 | 동작 (iPad 의 IP 를 쓰므로) |
 
 ---
 
-## 설치 절차 (최초 1회)
+## 1. 준비
 
-### 1. Mac 에 AltStore 설치
-[altstore.io](https://altstore.io) 에서 다운로드 → `AltStore.app` 를 Applications 에 넣습니다.
-이 앱 안쪽에 **AltServer**(서명 도구)가 들어 있습니다.
+```bash
+# Python 런타임 내려받기 (약 250MB, git 에는 안 들어 있음)
+./scripts/setup_python_ios.sh
+```
 
-### 2. iPad 를 USB 로 연결 + 신뢰
-- iPad 를 맥에 꽂고 "이 컴퓨터를 신뢰하시겠습니까?" → **신뢰**
-- 신뢰 안 하면 페어링이 안 되므로 이 단계가 꼭 필요합니다.
-
-### 3. iPad 에 AltStore 설치
-- 메뉴바(오른쪽 위)의 **AltServer 아이콘** 클릭
-- 메뉴에서 **Install AltStore on your iPad** 선택
-
-### 4. 다운로드 앱 설치
-- 다운로드할 앱의 `.ipa` 를 맥에 받습니다
-- 메뉴바 **AltServer 아이콘 위 `.ipa` 를 드래그 앤 드롭**
-- iPad 에 설치됩니다 (기존에 있는 앱도 이걸로 **재서명/갱신**됩니다)
-
-설치가 끝나면 USB 를 뽑아도 됩니다.
+`ios/Python.xcframework` 가 생깁니다. 없으면 빌드가 실패합니다. 최초 1회만.
 
 ---
 
-## 7일 갱신 (무료 계정의 유일한 제약)
+## 2. 맥에서 빌드 (시뮬레이터 — 검증된 명령)
 
-무료 Apple ID 는 앱 서명이 **7일** 뒤 만료됩니다. 만료되면 아이콘은 남아있지만 실행이 안 됩니다.
+```bash
+cd ios
+xcodebuild -project MusicDownloader.xcodeproj -scheme MusicDownloader \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M4),OS=26.5' \
+  -configuration Debug build \
+  ONLY_ACTIVE_ARCH=YES \
+  CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES
+```
 
-### 자동 갱신 설정 (권장, 1분이면 끝)
-1. **Mac** : 시스템 설정 → 일반 → 로그인 항목 → `+` → `AltStore.app` 추가
-   → 이제 Mac 을 켤 때마다 AltServer 가 알아서 뜹니다.
-2. **iPad** : 설정 → AltStore → **Refresh Background Apps** 켜기
-   → iOS 설정 → 일반 → Background App Refresh 에서 AltStore 허용
+플래그가 꼭 필요한 이유 (제거하면 깨집니다):
 
-이렇게 해두면 **AltStore 를 켜둔 채 Mac 을 쓸 때마다 자동으로 갱신**되므로, 별도 행동이 필요 없습니다.
-평소 Mac 을 쓰신다면 사실상 신경 안 쓰셔도 됩니다.
+- `ONLY_ACTIVE_ARCH=YES` — `generic` 으로 빌드하면 `lib-$ARCHS` 가
+  `lib-arm64 x86_64`(공백 포함)가 되어 rsync 실패
+- `CODE_SIGN_IDENTITY="-"` — `install_python` 이 변환된 extension 을 서명하는데,
+  서명을 끄면 `no identity found` 로 죽음
 
-### 갱신이 안 됐을 때
-- iPad 에서 **AltStore 앱을 한 번 실행** (백그라운드 갱신 트리거)
-- Mac 과 iPad 가 **같은 Wi-Fi** 인지 확인
-- 그래도 안 되면 Mac 의 AltServer 가 실행 중인지 확인 후 재시도
-
----
-
-## iOS 버전에 따른 참고
-
-- **iOS 17 이하** : TrollStore(무료 영구 설치)를 쓸 수 있어 7일 갱신이 아예 없습니다.
-  단, **iOS 업데이트를 하지 않아야** 하며 업데이트하면 설치가 깨집니다.
-- **최신 iOS (18 이상 등)** : 위의 AltStore 7일 갱신 방식이 유일한 무료 경로입니다.
+결과물:
+`~/Library/Developer/Xcode/DerivedData/MusicDownloader-*/Build/Products/Debug-iphonesimulator/MusicDownloader.app`
 
 ---
 
-## 자주 되는 문제
+## 3. iPad 에 넣기 (AltStore 사이드로드)
 
-**Q. 앱 아이콘은 있는데 실행이 안 돼요.**
-7일 만료입니다. 위의 "7일 갱신" 참고. iPad 에서 AltStore 를 한번 실행하세요.
+App Store 규칙상 이 앱은 배포판을 받을 수 없습니다(유튜브 다운로드 앱은 5.2.3 위반).
+**사이드로드**가 유일한 경로입니다.
 
-**Q. "신뢰하지 않는 개발자" 경고가 떠요.**
-설치 → 프로파일 → 해당 프로파일 **삭제** 후, Mac 의 AltServer 로 다시 설치.
+> **아직 기기에서 검증하지 않은 절차입니다.**
 
-**Q. Mac 을 7일 연속 안 켜면요?**
-앱이 만료됩니다. 그때 Mac 을 켜서 iPad 에서 AltStore 한 번 실행하면 갱신됩니다.
+### 3-1. Mac 에 AltStore 설치
+[altstore.io](https://altstore.io) 에서 `AltStore.app` 를 Applications 에 넣습니다.
+안쪽에 **AltServer**(서명 도구)가 들어 있습니다.
 
-**Q. 결제가 필요한가요?**
-아니요. 무료 Apple ID 로 동작합니다.
+### 3-2. 실기기용 .ipa 만들기 (미검증)
+
+```bash
+# 팀 ID: Xcode → Settings → Accounts 에 Apple ID 추가 후 Settings → Accounts 에 표시되는 Team ID
+xcodebuild -project MusicDownloader.xcodeproj -scheme MusicDownloader \
+  -sdk iphoneos -configuration Release \
+  -archivePath build/MusicDownloader.xcarchive \
+  DEVELOPMENT_TEAM=<팀ID> CODE_SIGN_STYLE=Automatic \
+  CODE_SIGNING_ALLOWED=YES -allowProvisioningUpdates
+```
+
+`ExportOptions.plist` (무료 계정 / 7일 기준):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key>              <string>development</string>
+  <key>teamID</key>              <string>팀ID</string>
+  <key>signingStyle</key>        <string>automatic</string>
+  <key>provisioningProfiles</key><dict/>
+</dict></plist>
+```
+
+```bash
+xcodebuild -exportArchive \
+  -archivePath build/MusicDownloader.xcarchive \
+  -exportOptionsPlist ExportOptions.plist -exportPath build/
+```
+
+### 3-3. iPad 에 설치
+1. iPad 를 USB 로 연결 → "이 컴퓨터를 신뢰"
+2. 메뉴바 **AltServer** → **Install AltStore on your iPad**
+3. `build/MusicDownloader.ipa` 를 AltServer 아이콘에 **드래그 앤 드롭**
+4. 설치 후 USB 뽑아도 됩니다
 
 ---
 
-## 왜 서버가 필요 없는가
+## 4. 맥에서 갱신
 
-이전에는 PWA(웹페이지) + 서버(GitHub Actions / Cloudflare)로 다운로드를 시도했는데 실패했습니다.
+### 4-1. yt-dlp 업데이트 (가장 자주 필요)
 
-원인은 **IP** 입니다. 유튜브는 호스팅(데이터센터) IP 대역을 자동으로 차단합니다. 쿠키, PO token, 여러 player client 를 전부 시도해도 뚫리지 않았고, 같은 명령이 집(회선)에서는 항상 성공했습니다.
+**사실상 가장 중요한 갱신입니다.** 유튜브가 방어를 자주 바꾸기 때문에 yt-dlp 가
+오래되면 **앱이 갑자기 아무것도 못 받습니다.** 설정상으로는 아무 오류 없이
+"결과 0건"으로 나올 수 있습니다.
 
-그래서 서버를 **자기 집에 있는 기기**(Pi 등)로 옮겨야 했지만, 그러면 그 기기를 계속 켜놔야 했습니다.
+```bash
+# 데스크톱 venv 의 최신 yt-dlp 를 iOS 번들로 복사
+cp -R .venv/lib/python3.14/site-packages/yt_dlp ios/PythonApp/
+.venv/bin/python -c "import sys; sys.path.insert(0,'ios/PythonApp'); \
+  import yt_dlp; print('yt-dlp', yt_dlp.version.__version__)"
+```
 
-**iPad 로 직접 받으면 이 문제가 사라집니다.** iPad 의 residential IP 를 그대로 쓰고, 켜놓을 서버도 필요 없습니다.
+그다음 3-3 절에서 다시 빌드·설치합니다.
+
+> 앱 안 자동 업데이트는 **아직 구현되지 않았습니다.** 지금은 반드시 맥에서 다시 빌드해야 합니다.
+
+### 4-2. 앱 코드 수정 후
+
+```bash
+git pull
+./scripts/setup_python_ios.sh   # xcframework 없으면
+cd ios && <2절의 xcodebuild 명령>
+```
+
+### 4-3. 재서명 · 재설치 (7일 갱신)
+
+무료 Apple ID 서명은 **7일** 뒤 만료됩니다. 만료되면 아이콘은 남지만 실행이 안 됩니다.
+
+AltServer 메뉴에서 해당 앱을 선택해 갱신하거나, 새 `.ipa` 를 다시 드래그합니다.
+
+자동으로 하려면:
+
+1. **Mac** — 시스템 설정 → 일반 → 로그인 항목 → `AltStore.app` 추가
+   (Mac 을 켤 때마다 AltServer 가 뜹니다)
+2. **iPad** — 설정 → AltStore → **Refresh Background Apps** 켜기
+
+평소 Mac 을 쓰실 때 갱신이 자동으로 일어납니다.
+**Mac 을 7일 연속으로 안 켜면** 앱이 만료되고, 그때 Mac 을 켜서 iPad 에서
+AltStore 를 한 번 실행하면 갱신됩니다.
+
+---
+
+## 5. 문제 해결
+
+**`Library not loaded: @rpath/Python.framework/Python` 로 죽는다**
+→ Embed & Sign 빌드 단계가 없습니다. pbxproj 의 `Embed Frameworks` 페이즈에
+`Python.xcframework` 가 `CodeSignOnCopy` 로 들어 있는지 확인하세요.
+
+**`no identity found` 로 빌드가 죽는다**
+→ `CODE_SIGNING_ALLOWED=NO` 로 빌드했습니다. 서명을 켠 채로 빌드하세요.
+
+**`lib-arm64 x86_64` 로 rsync 가 죽는다**
+→ `generic/platform=iOS Simulator` 로 빌드했습니다. 실제 시뮬레이터 기기를
+`destination` 에 지정하고 `ONLY_ACTIVE_ARCH=YES` 를 주세요.
+
+**`install_stdlib` 이 경로를 못 찾는다**
+→ `install_python` 은 **PROJECT_DIR 기준 상대경로**를 받습니다. 절대경로를 주면
+경로가 이중으로 붙습니다.
+
+**앱은 되는데 검색 결과가 0건**
+→ yt-dlp 버전이 뒤처졌을 가능성이 높습니다. 4-1 절로 갱신하세요.
+(iPad IP 자체가 막힌 경우도 있으므로 같은 기기에서 다른 앱으로도 확인해 보세요)
+
+---
+
+## 관련 파일
+
+| 경로 | 역할 |
+|---|---|
+| `ios/MusicDownloader/Core/PyBridge.swift` | Python 초기화 + 호출 |
+| `ios/MusicDownloader/Core/Engine.swift` | SwiftUI ↔ 엔진 (**현재 스텁**) |
+| `ios/PythonApp/mdl_ios.py` | iOS 어댑터 (저장 경로 등) |
+| `ios/PythonApp/yt_dlp/` | 번들된 yt-dlp (갱신 대상) |
+| `scripts/setup_python_ios.sh` | Python 런타임 다운로드 |
+| `android/README-ANDROID.md` | 안드로이드 빌드 (MP3 반영 예정) |
