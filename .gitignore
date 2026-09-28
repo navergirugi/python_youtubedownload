@@ -32,13 +32,20 @@ build/
 local.properties
 captures/
 
-# iOS: Python 런타임은 250MB대 바이너리라 저장소에 두지 않는다.
+# iOS: Python 런타임과 yt-dlp 는 서드파티/생성물이므로 저장소에 두지 않는다.
 # scripts/setup_python_ios.sh 로 다시 받을 수 있다.
+#
+# yt-dlp 를 커밋하면 extractor/shahid.py 안의 tvOS 테스트용 샘플 AWS 키가
+# GitHub secret scanning 에 걸려 push 가 막힌다. 공개 키라 유출 위험은 없지만,
+# 서드파티 1049 파일을 저장소에 둘 이유가 없다. 갱신도 수동이 되고,
+# scripts/setup_python_ios.sh 가 하는 일이 오히려 간단해진다.
 ios/Python.xcframework/
 ios/py.tgz
 ios/testbed/
 ios/DerivedData/
 ios/build/
+ios/PythonApp/yt_dlp/
+ios/PythonApp/__pycache__/
 *.xcarchive
 *.ipa
 
