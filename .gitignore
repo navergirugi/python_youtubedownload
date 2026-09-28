@@ -28,6 +28,16 @@ temp_*.mp3
 dist/
 build/
 
+# iOS: Python 런타임은 250MB대 바이너리라 저장소에 두지 않는다.
+# scripts/setup_python_ios.sh 로 다시 받을 수 있다.
+ios/Python.xcframework/
+ios/py.tgz
+ios/testbed/
+ios/DerivedData/
+ios/build/
+*.xcarchive
+*.ipa
+
 # Runtime data (사용자 음원)
 data/
 
