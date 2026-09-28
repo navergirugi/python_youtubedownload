@@ -19,6 +19,10 @@ const $ = (id) => document.getElementById(id);
 async function showCookieBanner() {
   const el = $("cookieBanner");
   if (!el) return;
+  if (API === "") {
+    el.hidden = true;
+    return;
+  }
   try {
     const res = await fetch(
       "https://api.github.com/repos/navergirugi/python_youtubedownload/releases/tags/pwa-status"

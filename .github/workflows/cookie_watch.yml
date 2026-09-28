@@ -1,10 +1,11 @@
 name: Cookie watch
 
 # YouTube 쿠키는 자동 갱신이 불가능하다(브라우저 로그인 세션이 필요).
-# 대신 매일 상태를 점검하고, 만료됐으면 이슈를 열어 알린다.
+# 다만 쿠키는 GitHub Actions 의 데이터센터 IP 차부를 우회하지 못하고, 오히려
+# 되돌이던 다운로드를 깨뜨린다(2026-09-28 실측: 쿠키 없으면 정상, 붙이면 전부
+# "The page needs to be reloaded"). 그래서 시크릿을 제거했고, 매일 돌리면
+# 거짓 만료 이슈만 재생성된다. 필요할 때만 수동으로 실행한다.
 on:
-  schedule:
-    - cron: '41 3 * * *'
   workflow_dispatch:
 
 permissions:

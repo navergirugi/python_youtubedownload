@@ -10,7 +10,6 @@ from __future__ import annotations
 import base64
 import json
 import os
-import subprocess
 import sys
 import tempfile
 
@@ -32,24 +31,33 @@ def probe() -> tuple[bool, str]:
     cookies = write_cookies()
     if not cookies:
         return False, "YTDL_COOKIES_B64 가 설정되지 않음"
-    cmd = [
-        sys.executable, "-m", "yt_dlp",
-        "--cookies", cookies,
-        "--extractor-args", "youtube:player_client=web;fetch_pot=never",
-        "--skip-download", "--no-warnings", "-j", PROBE_URL,
-    ]
+
+    # 간접 확인(extract_info, 별도 extractor-args 등)은 실제로는 되는 조합을
+    # 실패로 판정해 거짓 경보를 낸 적이 있다. 앱이 쓰는 그대로 실제 1곡을
+    # 내려보고 성공 여부를 그대로 쿠키 상태로 쓴다.
+    os.environ["MD_COOKIE_FILE"] = cookies
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import download as download_mod
+
+    produced = ""
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
-    except subprocess.TimeoutExpired:
-        return False, "timeout"
-    blob = p.stdout + p.stderr
-    if p.returncode == 0 and '"url"' in blob:
-        return True, "ok"
-    if "not a bot" in blob or "Sign in to confirm" in blob:
-        return False, "bot-check (쿠키 만료/무효 또는 IP 차단)"
-    if "401" in blob or "403" in blob:
-        return False, "인증 거부 (쿠키 만료)"
-    return False, blob.strip()[:200]
+        produced = download_mod.download_audio(
+            PROBE_URL, "probe", "probe", normalize=False
+        )
+    except Exception as e:
+        blob = str(e)
+        if "not a bot" in blob or "Sign in to confirm" in blob:
+            return False, "bot-check (쿠키 만료/무효 또는 IP 차단)"
+        if "reload" in blob.lower():
+            return False, "player 응답 실패 (쿠키 만료 의심)"
+        if "401" in blob or "403" in blob:
+            return False, "인증 거부 (쿠키 만료)"
+        return False, blob.strip()[:200]
+    finally:
+        if produced and os.path.exists(produced):
+            os.remove(produced)
+
+    return True, "ok (실제 오디오 1곡 다운로드 성공)"
 
 
 def main() -> None:
