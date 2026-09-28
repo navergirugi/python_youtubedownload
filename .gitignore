@@ -27,6 +27,10 @@ temp_*.mp3
 # Build outputs (재생성 가능)
 dist/
 build/
+.gradle/
+.cxx/
+local.properties
+captures/
 
 # iOS: Python 런타임은 250MB대 바이너리라 저장소에 두지 않는다.
 # scripts/setup_python_ios.sh 로 다시 받을 수 있다.
