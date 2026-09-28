@@ -179,7 +179,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(200, {
                     "status": "done",
                     "filename": job["filename"],
-                    "downloadUrl": f"/files/{job['id']}/{job['filename']}",
+                    "downloadUrl": f"/files/{job['id']}/{quote(job['filename'])}",
                 })
             if job["status"] == "done":
                 return self._json(200, {"status": "done", "rows": job.get("rows", [])})
