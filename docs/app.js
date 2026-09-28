@@ -1,4 +1,7 @@
-const API = "https://musicdownloader-api.workers.dev";
+// Pages 에서 열면 Worker, 로컬 서버(server/app.py)로 열면 same-origin.
+// 로컬 백엔드가 집 회선 IP를 쓰므로 다운로드가 된다.
+const PAGES_ORIGIN = "https://navergirugi.github.io";
+const API = location.origin === PAGES_ORIGIN ? "https://musicdownloader-api.workers.dev" : "";
 const GH = {
   owner: "navergirugi",
   repo: "python_youtubedownload",
