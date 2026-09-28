@@ -13,6 +13,9 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
+        // ffmpeg-kit 은 native lib 이라 JVM 단위 테스트로는 검증 불가.
+        // 실제 기기/에뮬레이터에서만 돌아간다.
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
     buildTypes {
@@ -71,8 +74,19 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.jsoup:jsoup:1.17.2'
     implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
-    // NOTE: ffmpeg-kit binaries were pulled from Maven Central (arthenica shutdown).
-    // v1 ships FFmpeg-free: progressive MP4 + raw audio save. See README-ANDROID.md.
+
+    // 원본 arthenica ffmpeg-kit 은 2025-04 에 Maven Central 에서 삭제됐다(저장소 아카이브).
+    // 같은 API/패키지(com.arthenica.ffmpegkit)를 그대로 쓰는 유지보수 포크를 쓴다.
+    // groupId 만 다르다. audio 변형에 lame(MP3 인코더)이 포함돼 있고,
+    // AAC/Opus 디코딩은 ffmpeg 기본 내장이라 추가 의존성이 필요 없다.
+    implementation 'dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.7'
+    // ffmpeg-kit 의 POM 이 이 의존성을 명시하지 않아 NoClassDefFoundError 가 난다
+    // (com.arthenica.smartexception.java.Exceptions). 원본 위키가 지정한 보정이다.
+    implementation 'com.arthenica:smart-exception-java:0.2.1'
 
     testImplementation 'junit:junit:4.13.2'
+
+    // ffmpeg-kit native lib 는 기기에서만 로드되므로 instrumented test 로 검증한다.
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
 }

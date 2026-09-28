@@ -4,13 +4,15 @@ import android.content.ContentValues
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.ReturnCode
 import java.io.File
 
-// FFmpeg 없이 동작하는 저장 헬퍼 (v1).
-// - 오디오: NewPipe 오디오 스트림을 원본 컨테이너 그대로 저장 (.m4a/.opus)
+// 저장/변환 헬퍼.
+// - 오디오: 원본 스트림(m4a/opus/webm)을 받아 MP3 로 변환한다. 유튜브는 MP3 를
+//   serve 하지 않고 AAC/Opus 만 주므로, lame 인코딩뿐 아니라 디코딩도 반드시 필요하다.
 // - 영상: progressive MP4 스트림을 그대로 저장 (합치기 불필요)
 // - API 29+: MediaStore.Downloads 사용 (직접 파일 쓰기 차단 대응)
-// 데스크탑 MP3 변환/loudnorm은 v1 제한사항 (README-ANDROID 참고).
 object MediaConvert {
     const val RELATIVE_DIR = "Download/MusicDownloader"
 
@@ -55,4 +57,31 @@ object MediaConvert {
     }
 
     fun isMediaStore(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+
+    /**
+     * 받은 오디오(원본 컨테이너)를 MP3 로 변환한다.
+     * @param bitrateK 128/192/320
+     * @return 변환된 파일
+     */
+    fun toMp3(src: File, dst: File, bitrateK: Int): File {
+        if (dst.exists() && dst.length() > 0) return dst
+        // 유지보수 포크는 FFmpegKitConfig.Builder 를 제거했고 명령 문자열을 직접 받는다.
+        val cmd = buildString {
+            append("-y -i ").append(quote(src.absolutePath))
+            append(" -vn -c:a libmp3lame -b:a ").append(bitrateK).append("k")
+            append(" ").append(quote(dst.absolutePath))
+        }
+        val session = FFmpegKit.execute(cmd)
+        val rc = session.returnCode
+        val output = session.allLogsAsString ?: ""
+        if (!ReturnCode.isSuccess(rc) || !dst.isFile || dst.length() == 0L) {
+            dst.delete()
+            throw RuntimeException(
+                "MP3 변환 실패 (code=$rc): " + output.takeLast(300)
+            )
+        }
+        return dst
+    }
+
+    private fun quote(p: String): String = "'" + p.replace("'", "'\\''") + "'"
 }

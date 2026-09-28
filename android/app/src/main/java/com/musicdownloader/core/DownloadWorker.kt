@@ -42,6 +42,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             val info = StreamInfo.getInfo(NewPipe.getService("YouTube"), clean)
             val base = Naming.songFilename(artist, title)
             val tmpRaw = File.createTempFile("mdl-", ".bin", applicationContext.cacheDir)
+            var tmpConv: File? = null
             try {
                 val (ext, mime) = if (kind == "audio") {
                     val cap = (quality.toIntOrNull() ?: 192) * 1000
@@ -50,10 +51,12 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                         ?: audios.maxByOrNull { it.averageBitrate }
                         ?: return Result.failure(workDataOf("error" to "오디오 스트림 없음"))
                     downloadToFile(picked.content, tmpRaw, label)
-                    val ext = try {
-                        MediaConvert.extForAudio(picked.codec, picked.format?.suffix)
-                    } catch (_: Exception) { "m4a" }
-                    ext to MediaConvert.mimeForExt(ext)
+                    setProgressAsync(workDataOf("note" to "MP3 변환 중..."))
+                    val kbps = (quality.toIntOrNull() ?: 192)
+                    val mp3 = File.createTempFile("mdl-mp3-", ".mp3", applicationContext.cacheDir)
+                    tmpConv = mp3
+                    MediaConvert.toMp3(tmpRaw, mp3, kbps)
+                    "mp3" to "audio/mpeg"
                 } else {
                     val maxH = Constants.maxHeightForQuality(quality)
                     val vids = info.videoStreams ?: emptyList()
@@ -68,17 +71,19 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     "mp4" to "video/mp4"
                 }
                 val fileName = "$base.$ext"
+                val payload = tmpConv ?: tmpRaw
                 val displayPath = if (MediaConvert.isMediaStore()) {
-                    saveToMediaStore(fileName, mime, tmpRaw)
+                    saveToMediaStore(fileName, mime, payload)
                 } else {
                     val out = Naming.uniqueFile(MediaConvert.legacyDir(), base, ext)
-                    MediaConvert.copyRaw(tmpRaw, out)
+                    MediaConvert.copyRaw(payload, out)
                     out.absolutePath
                 }
                 Result.success(workDataOf("path" to displayPath, "displayPath" to displayPath))
                     .also { notifyDone(label, true, displayPath) }
             } finally {
                 tmpRaw.delete()
+                tmpConv?.delete()
             }
         } catch (e: Exception) {
             android.util.Log.e("MusicDownloader", "download failed: $streamUrl", e)
