@@ -37,6 +37,3 @@ data/
 # YouTube 쿠키 (자격증명, 절대 커밋 금지)
 cookies.txt
 *.cookies.txt
-
-# wrangler 로컬 상태
-worker/.wrangler/

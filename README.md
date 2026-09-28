@@ -51,6 +51,12 @@ pyinstaller --noconfirm cli.spec  # CLI → dist/cli (ffmpeg 내장)
 리포지토리 → Actions → Release build → Run workflow → 태그 입력(예: v1.0.1) → 실행
 → 끝나면 Releases 페이지에서 `MusicDownloader-win.zip` / `MusicDownloader-mac-app.zip` 다운로드
 
+## 안드로이드 / iPad
+
+- **안드로이드**: 풀 네이티브(Kotlin + Compose) 앱. `android/README-ANDROID.md` 참고.
+  GitHub Actions의 Android APK 워크플로가 APK를 자동 빌드해 Releases에 올린다.
+- **iPad**: `IPAD_SETUP.md` 참고 (사이드로드 방식).
+
 ## 구조
 
 ```
