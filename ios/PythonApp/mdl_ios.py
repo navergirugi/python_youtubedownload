@@ -53,7 +53,6 @@ def _search(artist: str, title: str, kind: str) -> list[dict]:
 
 def download(url: str, artist: str, title: str, kind: str, quality: str) -> str:
     _redirect_config()
-    import config
     import download as dl
 
     ff = ffmpeg_path()
@@ -61,8 +60,7 @@ def download(url: str, artist: str, title: str, kind: str, quality: str) -> str:
         dl._ffmpeg_location = lambda: ff
 
     if kind == "video":
-        return dl.download_video(url, artist, title, quality=quality, normalize=False) \
-            if False else dl.download_video(url, artist, title, quality=quality)
+        return dl.download_video(url, artist, title, quality=quality)
     return dl.download_audio(url, artist, title, bitrate=quality, normalize=False)
 
 
@@ -76,3 +74,32 @@ def top100() -> list[dict]:
 def ytdlp_version() -> str:
     import yt_dlp.version
     return yt_dlp.version.__version__
+
+
+# Swift 가 부르는 단일 진입점. PythonKit 은 속성 이름을 동적으로 찾을 수 없어서
+# (fatalError 로 죽는다) 함수 이름은 여기서 문자열로 옮겨 매칭한다.
+_DISPATCH = {
+    "_search": _search,
+    "download": download,
+    "top100": top100,
+    "ytdlp_version": ytdlp_version,
+}
+
+
+def dispatch(cmd: str) -> str:
+    # PythonKit 은 호출을 try! 로 감싸서 예외가 나면 프로세스가 죽는다.
+    # 그래서 이 함수는 절대 예외를 던지지 않고 결과를 항상 문자열로 돌려준다.
+    import json
+
+    try:
+        req = json.loads(cmd)
+        name = req.get("fn", "")
+        fn = _DISPATCH.get(name)
+        if fn is None:
+            raise ValueError("알 수 없는 명령: " + name)
+        return json.dumps({"ok": True, "data": fn(*req.get("args", []))}, ensure_ascii=False)
+    except BaseException as e:
+        import traceback
+        detail = f"{type(e).__name__}: {e}"
+        return json.dumps({"ok": False, "error": detail,
+                           "trace": traceback.format_exc()[-1500:]}, ensure_ascii=False)
