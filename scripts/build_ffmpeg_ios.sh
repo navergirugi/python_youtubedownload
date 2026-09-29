@@ -30,6 +30,12 @@ fi
 
 build_lame() {
   local host="$1" label="$2" sysroot="$3" flag="$4"
+  # lame configure는 sysroot만으로 플랫폼을 추론하지 못한다. triple 없이
+  # 빌드하면 sim용도 기기(iOS) 오브젝트가 나와 sim ffmpeg 링크가 죽는다
+  # ("built for 'iOS'"). 슬라이스별 triple을 명시한다.
+  local triple
+  if [ "$label" = sim ]; then triple=arm64-apple-ios15.0-simulator;
+  else triple=arm64-apple-ios15.0; fi
   [ -f "$WORK/lame-out-$label/config.status" ] && return 0
   echo "== lame 빌드: $label =="
   rm -rf "$WORK/lame-out-$label"
@@ -38,8 +44,8 @@ build_lame() {
     --disable-shared --enable-static --disable-frontend --disable-decoder \
     --disable-gtktest --disable-analyzer-hooks --disable-gtktest \
     CC=clang "$@" $flag \
-    CFLAGS="-Os -arch arm64 -isysroot $sysroot" \
-    LDFLAGS="-arch arm64 -isysroot $sysroot"
+    CFLAGS="-Os -arch arm64 -target $triple -isysroot $sysroot" \
+    LDFLAGS="-arch arm64 -target $triple -isysroot $sysroot"
   make -j"$(sysctl -n hw.ncpu)"
   make install
   cd "$WORK"
