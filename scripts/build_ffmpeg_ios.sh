@@ -120,7 +120,8 @@ build_slice() {
   # 이미 완성된 슬라이스는 재빌드하지 않는다. make clean 이 wipe 하는 걸 막고,
   # 90MB짜리 libavcodec.a 를 매번 다시 만드는 시간을 아낀다.
   if [ -f "$WORK/out-$label/lib/libavcodec.a" ] \
-     && nm "$WORK/out-$label/lib/libavcodec.a" 2>/dev/null | grep -q "ff_libmp3lame_encoder"; then
+     && nm "$WORK/out-$label/lib/libavcodec.a" 2>/dev/null > "$WORK/.nmsyms" \
+     && grep -q "ff_libmp3lame_encoder" "$WORK/.nmsyms"; then
     echo "   이미 빌드됨 (건너뜀)"
     return 0
   fi
@@ -159,7 +160,8 @@ build_slice() {
   # configure 는 지원 안 되는 플래그를 조용히 무시하고 MP3 인코더를 빼버린다.
   # 심볼이 실제로 들어갔는지 확인해 둔다. 심볼 이름은 ff_libmp3lame_encoder 다
   # (libmp3lame_encoder 가 아니어서 처음에 오탐했다).
-  if ! nm "$WORK/out-$label/lib/libavcodec.a" 2>/dev/null | grep -q "ff_libmp3lame_encoder"; then
+  nm "$WORK/out-$label/lib/libavcodec.a" 2>/dev/null > "$WORK/.nmsyms" || true
+  if ! grep -q "ff_libmp3lame_encoder" "$WORK/.nmsyms"; then
     echo "!! $label: libmp3lame 이 제외됐다. MP3 인코딩 불가." >&2
     exit 1
   fi
