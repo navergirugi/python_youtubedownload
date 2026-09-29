@@ -187,16 +187,23 @@ build_slice "sim" "$(xcrun --sdk iphonesimulator --show-sdk-path)" "-mios-simula
   --extra-cflags="-Os -fembed-bitcode-marker"
 
 echo "== xcframework 조립 =="
+# xcodebuild 는 -library 하나를 라이브러리 식별자 하나(ios-arm64 등)로 본다.
+# 슬라이스당 .a 4개를 그대로 넘기면 식별자가 중복돼
+# "A library with the identifier 'ios-arm64' already exists" 로 죽는다.
+# 그래서 슬라이스별로 libtool -static 으로 libffmpeg.a 하나로 합친 뒤,
+# 슬라이스 2개만 넘긴다.
+for slice in ios sim; do
+  mkdir -p "$WORK/merged-$slice"
+  libtool -static -o "$WORK/merged-$slice/libffmpeg.a" \
+    "$WORK/out-$slice/lib/libavformat.a" \
+    "$WORK/out-$slice/lib/libavcodec.a" \
+    "$WORK/out-$slice/lib/libavutil.a" \
+    "$WORK/out-$slice/lib/libswresample.a"
+done
 rm -rf "$OUT"
 xcodebuild -create-xcframework \
-  -library "$WORK/out-ios/lib/libavformat.a" -headers "$WORK/out-ios/include" \
-  -library "$WORK/out-ios/lib/libavcodec.a" -headers "$WORK/out-ios/include" \
-  -library "$WORK/out-ios/lib/libavutil.a"  -headers "$WORK/out-ios/include" \
-  -library "$WORK/out-ios/lib/libswresample.a" -headers "$WORK/out-ios/include" \
-  -library "$WORK/out-sim/lib/libavformat.a" -headers "$WORK/out-sim/include" \
-  -library "$WORK/out-sim/lib/libavcodec.a" -headers "$WORK/out-sim/include" \
-  -library "$WORK/out-sim/lib/libavutil.a"  -headers "$WORK/out-sim/include" \
-  -library "$WORK/out-sim/lib/libswresample.a" -headers "$WORK/out-sim/include" \
+  -library "$WORK/merged-ios/libffmpeg.a" -headers "$WORK/out-ios/include" \
+  -library "$WORK/merged-sim/libffmpeg.a" -headers "$WORK/out-sim/include" \
   -output "$OUT"
 
 du -sh "$OUT"
