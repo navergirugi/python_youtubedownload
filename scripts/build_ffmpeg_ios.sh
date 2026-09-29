@@ -46,6 +46,10 @@ build_lame() {
     CC=clang "$@" $flag \
     CFLAGS="-Os -arch arm64 -target $triple -isysroot $sysroot" \
     LDFLAGS="-arch arm64 -target $triple -isysroot $sysroot"
+  # ios/sim이 같은 소스 트리를 공유하므로 이전 슬라이스의 .o가 남으면 make가
+  # 재컴파일을 건너뛰고 stale 오브젝트를 설치한다 (sim prefix에 iOS 오브젝트가
+  # 들어간 원인이 이것이었다). configure 직후 clean 한다.
+  make clean >/dev/null 2>&1 || true
   make -j"$(sysctl -n hw.ncpu)"
   make install
   cd "$WORK"
