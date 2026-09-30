@@ -107,6 +107,10 @@ App Store 규칙상 이 앱은 배포판을 받을 수 없습니다(유튜브 �
 
 ### 3-2. 실기기용 .ipa 만들기 (미검증)
 
+> **확인된 사실 (Mac에서, 서명 제외):** `iphoneos` 빌드의 컴파일+링크는 통과합니다 —
+> `MusicDownloader.debug.dylib` 19.8MB 안에 `mdl_convert_to_mp3`·libav 심볼이 들어 있습니다.
+> 막히는 지점은 `Prepare Python` 단계의 프레임워크 서명뿐이며, Apple ID 서명 신원이 있으면 풀립니다.
+
 ```bash
 # 팀 ID: Xcode → Settings → Accounts 에 Apple ID 추가 후 Settings → Accounts 에 표시되는 Team ID
 xcodebuild -project MusicDownloader.xcodeproj -scheme MusicDownloader \
