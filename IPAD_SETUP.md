@@ -116,7 +116,7 @@ xcodebuild -project MusicDownloader.xcodeproj -scheme MusicDownloader \
   CODE_SIGNING_ALLOWED=YES -allowProvisioningUpdates
 ```
 
-`ExportOptions.plist` (무료 계정 / 7일 기준):
+`ios/ExportOptions.plist` (파일로 있음 — `YOUR_TEAM_ID`만 본인 팀 ID로 교체, 무료 계정 / 7일 기준):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -161,7 +161,7 @@ cp -R .venv/lib/python3.14/site-packages/yt_dlp ios/PythonApp/
 
 그다음 3-3 절에서 다시 빌드·설치합니다.
 
-> 앱 안 자동 업데이트는 **아직 구현되지 않았습니다.** 지금은 반드시 맥에서 다시 빌드해야 합니다.
+> 앱 안에 자동 업데이트가 있습니다(설정 탭 → yt-dlp 갱신). 갱신 후에도 안 되면 4-1절로 번들을 교체하세요.
 
 ### 4-2. 앱 코드 수정 후
 
@@ -196,7 +196,7 @@ AltStore 를 한 번 실행하면 갱신됩니다.
 `Python.xcframework` 가 `CodeSignOnCopy` 로 들어 있는지 확인하세요.
 
 **`no identity found` 로 빌드가 죽는다**
-→ `CODE_SIGNING_ALLOWED=NO` 로 빌드했습니다. 서명을 켠 채로 빌드하세요.
+→ `Prepare Python` 단계에서 서명 신원이 비어 있습니다. 실기기 빌드는 Apple ID 서명이 필수라 우회 불가 — Xcode → Settings → Accounts 에 Apple ID를 추가하고 `DEVELOPMENT_TEAM=<팀ID>` 와 함께 빌드하세요.
 
 **`lib-arm64 x86_64` 로 rsync 가 죽는다**
 → `generic/platform=iOS Simulator` 로 빌드했습니다. 실제 시뮬레이터 기기를
@@ -217,8 +217,8 @@ AltStore 를 한 번 실행하면 갱신됩니다.
 | 경로 | 역할 |
 |---|---|
 | `ios/MusicDownloader/Core/PyBridge.swift` | Python 초기화 + 호출 |
-| `ios/MusicDownloader/Core/Engine.swift` | SwiftUI ↔ 엔진 (**현재 스텁**) |
+| `ios/MusicDownloader/Core/Engine.swift` | SwiftUI ↔ 엔진 (검색/다운로드/MP3/갱신) |
 | `ios/PythonApp/mdl_ios.py` | iOS 어댑터 (저장 경로 등) |
 | `ios/PythonApp/yt_dlp/` | 번들된 yt-dlp (갱신 대상) |
 | `scripts/setup_python_ios.sh` | Python 런타임 다운로드 |
-| `android/README-ANDROID.md` | 안드로이드 빌드 (MP3 반영 예정) |
+| `android/README-ANDROID.md` | 안드로이드 빌드 (MP3 변환 포함) |
