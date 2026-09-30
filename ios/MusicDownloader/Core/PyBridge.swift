@@ -18,6 +18,9 @@ final class PyBridge {
 
     static func start() throws {
         if started { return }
+        // 번들에 딸려온 .pyc 를 iOS 인터프리터가 신뢰하지 않게 한다.
+        // mac 에서 생성된 바이트코드를 그대로 실행하다 죽을 수 있어, 생성 자체를 끈다.
+        setenv("PYTHONDONTWRITEBYTECODE", "1", 1)
         let bundle = Bundle.main
         guard let home = bundle.path(forResource: "python", ofType: nil) else {
             throw PyError.missingBundle("python")
@@ -72,7 +75,12 @@ final class PyBridge {
             let tb = (env["trace"] as? String) ?? ""
             throw PyError.python(msg + "\n" + tb)
         }
-        let inner = try JSONSerialization.data(withJSONObject: env["data"] ?? [])
+        // data 가 문자열(파일 경로, 버전 등)이면 그대로 돌려준다. 최상위
+        // string 을 dataWithJSONObject 로 감싸면 NSInvalidArgumentException 으로
+        // 프로세스가 죽는다. 배열/딕셔너리만 JSON 문자열로 재인코딩한다.
+        if let s = env["data"] as? String { return s }
+        let inner = try JSONSerialization.data(
+            withJSONObject: env["data"] ?? [], options: [.fragmentsAllowed])
         return String(data: inner, encoding: .utf8) ?? "[]"
     }
 }

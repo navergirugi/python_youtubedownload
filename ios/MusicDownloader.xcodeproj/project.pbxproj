@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		1A0000000000000000000011 /* Python.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000010 /* Python.xcframework */; };
+		1A0000000000000000000021 /* FFmpeg.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000020 /* FFmpeg.xcframework */; };
+		1A0000000000000000000023 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000022 /* libz.tbd */; };
+		1A0000000000000000000025 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000024 /* libbz2.tbd */; };
 		1A0000000000000000000015 /* PythonKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1A0000000000000000000014 /* PythonKit */; };
 		1A0000000000000000000017 /* PythonApp in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000016 /* PythonApp */; };
 		1A0000000000000000000019 /* Python.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000010 /* Python.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -30,6 +33,9 @@
 /* Begin PBXFileReference section */
 		1A0000000000000000000005 /* MusicDownloader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicDownloader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000000000000000000010 /* Python.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Python.xcframework; path = Python.xcframework; sourceTree = "<group>"; };
+		1A0000000000000000000020 /* FFmpeg.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = FFmpeg.xcframework; path = FFmpeg.xcframework; sourceTree = "<group>"; };
+		1A0000000000000000000022 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		1A0000000000000000000024 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = usr/lib/libbz2.tbd; sourceTree = SDKROOT; };
 		1A0000000000000000000016 /* PythonApp */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PythonApp; path = PythonApp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -48,6 +54,9 @@
 			files = (
 				1A0000000000000000000015 /* PythonKit in Frameworks */,
 				1A0000000000000000000011 /* Python.xcframework in Frameworks */,
+				1A0000000000000000000021 /* FFmpeg.xcframework in Frameworks */,
+				1A0000000000000000000023 /* libz.tbd in Frameworks */,
+				1A0000000000000000000025 /* libbz2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,6 +69,7 @@
 				1A000000000000000000000F /* MusicDownloader */,
 				1A0000000000000000000018 /* PythonApp */,
 				1A0000000000000000000010 /* Python.xcframework */,
+				1A0000000000000000000020 /* FFmpeg.xcframework */,
 				1A0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -255,6 +265,12 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicdownloader.ios;
 				PRODUCT_NAME = MusicDownloader;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/FFmpeg.xcframework/ios-arm64/Headers",
+					"$(PROJECT_DIR)/MusicDownloader",
+				);
+				SWIFT_OBJC_BRIDGING_HEADER = "MusicDownloader/MusicDownloader-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -283,6 +299,12 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicdownloader.ios;
 				PRODUCT_NAME = MusicDownloader;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/FFmpeg.xcframework/ios-arm64/Headers",
+					"$(PROJECT_DIR)/MusicDownloader",
+				);
+				SWIFT_OBJC_BRIDGING_HEADER = "MusicDownloader/MusicDownloader-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

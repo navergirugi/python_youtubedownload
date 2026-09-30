@@ -41,3 +41,18 @@ print('  -> yt-dlp', yt_dlp.version.__version__)
 else
   echo "경고: .venv 가 없어 yt-dlp 동기화 생략 (python3 -m venv .venv 후 pip install -r requirements.txt)"
 fi
+
+# mutagen 은 순수 Python 태깅 라이브러리다. yt-dlp 와 같은 이유로 저장소에
+# 두지 않고(서드파티), 여기서 venv 사본으로 동기화한다. _tag_mp3 는
+# try/except 로 감싸져 있어 없어도 다운로드는 되지만 태그가 빠진다.
+if [ -x ".venv/bin/python" ]; then
+  if .venv/bin/python -c "import mutagen" 2>/dev/null; then
+    echo "mutagen 을 iOS 번들로 동기화 ..."
+    rm -rf ios/PythonApp/mutagen
+    SITE=$(.venv/bin/python -c "import mutagen, os; print(os.path.dirname(os.path.dirname(mutagen.__file__)))")
+    cp -R "$SITE/mutagen" ios/PythonApp/
+    echo "  -> mutagen 동기화 완료"
+  else
+    echo "경고: venv 에 mutagen 없음 (pip install mutagen 권장, 없어도 태그만 생략)"
+  fi
+fi

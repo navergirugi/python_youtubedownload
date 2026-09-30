@@ -64,6 +64,53 @@ def download(url: str, artist: str, title: str, kind: str, quality: str) -> str:
     return dl.download_audio(url, artist, title, bitrate=quality, normalize=False)
 
 
+def download_raw(url: str, artist: str, title: str, kind: str, quality: str) -> str:
+    """ffmpeg 없이 원본 그대로 받는다. iOS용 (변환은 Swift 네이티브가 담당)."""
+    _redirect_config()
+    import shutil
+    import tempfile
+    import config
+    import naming
+    import download as dl
+    from yt_dlp import YoutubeDL
+
+    if kind == "video":
+        # merge 없이 단일 파일 mp4만 받는다 (ffmpeg 합치기 불가).
+        h = {"360p": 360, "720p": 720, "1080p": 1080}.get(quality, 100000)
+        format_sel = f"best[height<={h}][ext=mp4]/best[height<={h}]/best"
+        outdir = config.get_video_dir()
+    else:
+        if quality not in config.AUDIO_BITRATES:
+            raise ValueError(f"지원하지 않는 비트레이트: {quality}")
+        format_sel = "bestaudio/best"
+        outdir = config.get_audio_dir()
+    base = naming.song_filename(artist, title)
+    tmp = tempfile.mkdtemp(prefix="mdl_raw_")
+    opts = {
+        **dl._base_opts(),
+        "format": format_sel,
+        "outtmpl": os.path.join(tmp, "%(title)s.%(ext)s"),
+    }
+    with YoutubeDL(opts) as ydl:
+        ydl.download([url])
+    files = [os.path.join(tmp, f) for f in os.listdir(tmp)
+             if os.path.isfile(os.path.join(tmp, f))]
+    if not files:
+        raise RuntimeError("다운로드된 파일이 없습니다.")
+    src = max(files, key=os.path.getsize)
+    _, ext = os.path.splitext(src)
+    final = naming.unique_path(outdir, base, ext or ".bin")
+    shutil.move(src, final)
+    return final
+
+
+def tag(path: str, artist: str, title: str) -> str:
+    import download as dl
+
+    dl._tag_mp3(path, artist, title)
+    return path
+
+
 def top100() -> list[dict]:
     _redirect_config()
     import melon
@@ -81,6 +128,8 @@ def ytdlp_version() -> str:
 _DISPATCH = {
     "_search": _search,
     "download": download,
+    "download_raw": download_raw,
+    "tag": tag,
     "top100": top100,
     "ytdlp_version": ytdlp_version,
 }

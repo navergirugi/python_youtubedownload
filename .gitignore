@@ -46,6 +46,7 @@ ios/testbed/
 ios/DerivedData/
 ios/build/
 ios/PythonApp/yt_dlp/
+ios/PythonApp/mutagen/
 ios/PythonApp/__pycache__/
 *.xcarchive
 *.ipa

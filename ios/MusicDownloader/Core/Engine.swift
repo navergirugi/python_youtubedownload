@@ -114,7 +114,26 @@ actor Engine {
 
     func download(url: String, artist: String, title: String, kind: String, quality: String) async throws -> String {
         try ensureReady()
-        return try await run("download", [url, artist, title, kind, quality])
+        // iOS에는 ffmpeg 바이너리가 없으므로: Python은 원본(m4a/mp4)만 받고,
+        // MP3 변환은 정적 링크된 libav 네이티브 코드가 담당한다.
+        let rawPath = try await run("download_raw", [url, artist, title, kind, quality])
+        guard kind == "audio" else { return rawPath }
+        let srcURL = URL(fileURLWithPath: rawPath)
+        let dirURL = srcURL.deletingLastPathComponent()
+        let base = srcURL.deletingPathExtension().lastPathComponent
+        var dstURL = dirURL.appendingPathComponent(base).appendingPathExtension("mp3")
+        var n = 1
+        while FileManager.default.fileExists(atPath: dstURL.path) {
+            n += 1
+            dstURL = dirURL.appendingPathComponent("\(base) (\(n))").appendingPathExtension("mp3")
+        }
+        let bitrate = Int(quality) ?? 192
+        try await Task.detached(priority: .userInitiated) {
+            try Mp3Convert.convert(src: srcURL, dst: dstURL, bitrateKbps: bitrate)
+        }.value
+        _ = try await run("tag", [dstURL.path, artist, title])
+        try? FileManager.default.removeItem(at: srcURL)
+        return dstURL.path
     }
 
     func top100() async throws -> [SongEntry] {
