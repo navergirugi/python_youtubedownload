@@ -123,6 +123,91 @@ def ytdlp_version() -> str:
     return yt_dlp.version.__version__
 
 
+def _update_dir() -> str:
+    return os.path.join(_documents(), "ytdlp_update")
+
+
+def activate_update() -> str:
+    # 앱 시작 시 1회: Documents 갱신본이 있으면 맨 앞에 둔다.
+    # 절대 예외를 던지지 않는다 (실패하면 번들 버전으로 동작).
+    try:
+        import sys
+
+        d = _update_dir()
+        if os.path.isdir(os.path.join(d, "yt_dlp")):
+            if d in sys.path:
+                sys.path.remove(d)
+            sys.path.insert(0, d)
+        for m in [m for m in list(sys.modules)
+                  if m == "yt_dlp" or m.startswith("yt_dlp.")]:
+            del sys.modules[m]
+        import yt_dlp.version
+        return yt_dlp.version.__version__
+    except BaseException:
+        try:
+            import yt_dlp.version
+            return yt_dlp.version.__version__
+        except BaseException:
+            return "unknown"
+
+
+def update_ytdlp() -> dict:
+    # PyPI에서 최신 yt-dlp를 받아 Documents에 풀고 즉시 전환한다.
+    # 유튜브가 방어를 자주 바꾸므로 구버전은 어느 날 갑자기 멈춘다.
+    import json as _json
+    import shutil
+    import sys
+    import tempfile
+    import urllib.request
+    import zipfile
+
+    activate_update()
+    import yt_dlp.version as _v
+    cur = _v.__version__
+    with urllib.request.urlopen("https://pypi.org/pypi/yt-dlp/json",
+                                timeout=30) as r:
+        info = _json.loads(r.read().decode("utf-8"))
+    latest = info["info"]["version"]
+    # PyPI 는 PEP 440 정규형(2026.8.19)을 주고 패키지 안은 원본(2026.08.19)이라
+    # 문자열 비교는 같은 릴리스를 다르다고 본다. 숫자 튜플로 비교한다.
+    def _normver(v: str) -> tuple:
+        return tuple(int(x) if x.isdigit() else x for x in str(v).split("."))
+    if _normver(latest) == _normver(cur):
+        return {"updated": False, "version": cur}
+    whl = next((u for u in info.get("urls", [])
+                if u.get("packagetype") == "bdist_wheel"
+                and str(u.get("url", "")).endswith(".whl")), None)
+    if whl is None:
+        raise RuntimeError("wheel 없음")
+    tmp = tempfile.mkdtemp(prefix="ytdlp_up_")
+    zp = os.path.join(tmp, "yt_dlp.whl")
+    with urllib.request.urlopen(whl["url"], timeout=120) as r, \
+            open(zp, "wb") as f:
+        shutil.copyfileobj(r, f)
+    d = _update_dir()
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(d, exist_ok=True)
+    with zipfile.ZipFile(zp) as z:
+        for n in z.namelist():
+            if n.startswith("yt_dlp/") and ".." not in n \
+                    and not n.startswith("/"):
+                z.extract(n, d)
+    shutil.rmtree(tmp, ignore_errors=True)
+    if not os.path.isfile(os.path.join(d, "yt_dlp", "version.py")):
+        raise RuntimeError("추출 실패")
+    for m in [m for m in list(sys.modules)
+              if m == "yt_dlp" or m.startswith("yt_dlp.")]:
+        del sys.modules[m]
+    if d in sys.path:
+        sys.path.remove(d)
+    sys.path.insert(0, d)
+    import yt_dlp.version as _v2
+    new = _v2.__version__
+    if _normver(new) != _normver(latest):
+        raise RuntimeError(f"갱신 후 버전 불일치: {new} != {latest}")
+    return {"updated": True, "version": new}
+
+
 # Swift 가 부르는 단일 진입점. PythonKit 은 속성 이름을 동적으로 찾을 수 없어서
 # (fatalError 로 죽는다) 함수 이름은 여기서 문자열로 옮겨 매칭한다.
 _DISPATCH = {
@@ -132,6 +217,8 @@ _DISPATCH = {
     "tag": tag,
     "top100": top100,
     "ytdlp_version": ytdlp_version,
+    "activate_update": activate_update,
+    "update_ytdlp": update_ytdlp,
 }
 
 

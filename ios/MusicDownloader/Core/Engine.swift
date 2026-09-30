@@ -44,9 +44,7 @@ actor Engine {
     static func boot() async {
         var lines: [String] = []
         do {
-            let v = try await Task.detached(priority: .userInitiated) {
-                try PyBridge.ytdlpVersion()
-            }.value
+            let v = try await Engine.shared.run("activate_update", [])
             lines.append("PYTHON_OK yt-dlp=\(v)")
             NSLog("[MusicDownloader] Python OK, yt-dlp %@", v)
             await Engine.shared.markReady("yt-dlp \(v)")
@@ -158,10 +156,14 @@ actor Engine {
         }
     }
 
+    struct UpdateResult: Decodable {
+        let updated: Bool
+        let version: String
+    }
+
     func updateYtdlp() async throws {
         try ensureReady()
-        _ = try await Task.detached(priority: .utility) {
-            try PyBridge.ytdlpVersion()
-        }.value
+        let r: UpdateResult = try decode(try await run("update_ytdlp", []))
+        await markReady("yt-dlp \(r.version)" + (r.updated ? " (갱신됨)" : " (최신)"))
     }
 }
