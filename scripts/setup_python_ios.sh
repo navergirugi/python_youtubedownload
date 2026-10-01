@@ -56,3 +56,19 @@ if [ -x ".venv/bin/python" ]; then
     echo "경고: venv 에 mutagen 없음 (pip install mutagen 권장, 없어도 태그만 생략)"
   fi
 fi
+
+# certifi 는 iOS 실기기에서 필수다. iOS 에는 OpenSSL 이 읽을 시스템 CA 번들이
+# 없어서(키체인만 있음) 번들에 Mozilla CA 를 넣고 mdl_ios 가 SSL_CERT_FILE 로
+# 가리킨다. 없으면 실기기에서 CERTIFICATE_VERIFY_FAILED 로 검색이 죽는다.
+if [ -x ".venv/bin/python" ]; then
+  if .venv/bin/python -c "import certifi" 2>/dev/null; then
+    echo "certifi 를 iOS 번들로 동기화 ..."
+    rm -rf ios/PythonApp/certifi
+    SITE=$(.venv/bin/python -c "import certifi, os; print(os.path.dirname(os.path.dirname(certifi.__file__)))")
+    cp -R "$SITE/certifi" ios/PythonApp/
+    echo "  -> certifi 동기화 완료"
+  else
+    echo "오류: venv 에 certifi 없음. pip install certifi 후 다시 실행 (실기기 SSL 필수)"
+    exit 1
+  fi
+fi

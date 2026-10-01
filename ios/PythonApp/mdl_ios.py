@@ -10,6 +10,24 @@ import os
 import sys
 
 
+def _ssl_bundle_path() -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, "certifi", "cacert.pem")
+
+
+def _ensure_ssl_certs() -> bool:
+    # iOS 에는 OpenSSL 이 읽을 시스템 CA 번들이 없다(키체인만 있음).
+    # certifi 번들을 같이 넣어 SSL_CERT_FILE 로 가리킨다.
+    p = _ssl_bundle_path()
+    if os.path.isfile(p):
+        os.environ["SSL_CERT_FILE"] = p
+        return True
+    return False
+
+
+_SSL_OK = _ensure_ssl_certs()
+
+
 def _documents() -> str:
     return os.path.join(os.path.expanduser("~"), "Documents")
 
@@ -142,13 +160,13 @@ def activate_update() -> str:
                   if m == "yt_dlp" or m.startswith("yt_dlp.")]:
             del sys.modules[m]
         import yt_dlp.version
-        return yt_dlp.version.__version__
+        return f"{yt_dlp.version.__version__};ssl={'ok' if _SSL_OK else 'missing'}"
     except BaseException:
         try:
             import yt_dlp.version
-            return yt_dlp.version.__version__
+            return f"{yt_dlp.version.__version__};ssl={'ok' if _SSL_OK else 'missing'}"
         except BaseException:
-            return "unknown"
+            return f"unknown;ssl={'ok' if _SSL_OK else 'missing'}"
 
 
 def update_ytdlp() -> dict:
