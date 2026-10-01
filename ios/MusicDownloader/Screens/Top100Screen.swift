@@ -9,6 +9,10 @@ struct Top100Screen: View {
     @State private var isLoading = false
     @State private var log = ""
     @State private var tasks: [DownloadTask] = []
+    @State private var pendingSong: SongEntry?
+    @State private var busySongs = Set<String>()
+
+    private func songKey(_ s: SongEntry) -> String { "\(s.artist) - \(s.title)" }
 
     var body: some View {
         NavigationView {
@@ -47,18 +51,27 @@ struct Top100Screen: View {
                 if !songs.isEmpty {
                     Section("곡 (\(songs.count))") {
                         ForEach(Array(songs.enumerated()), id: \.offset) { idx, s in
-                            Top100Row(index: idx + 1, song: s) { start(s) }
+                            Top100Row(index: idx + 1, song: s) { if !busySongs.contains(songKey(s)) { pendingSong = s } }
                         }
                     }
                 }
                 if !tasks.isEmpty {
-                    Section("진행") { ForEach(tasks) { TaskRow(task: $0) } }
+                    Section("진행") { ForEach(tasks) { TaskRow(task: $0, onShare: { shareFile($0) }) } }
                 }
                 if !log.isEmpty {
                     Section("로그") { Text(log).font(.footnote).foregroundStyle(.secondary) }
                 }
             }
             .navigationTitle("멜론 TOP100")
+            .alert("다운로드할까요?", isPresented: Binding(
+                get: { pendingSong != nil },
+                set: { if !$0 { pendingSong = nil } }
+            ), presenting: pendingSong) { s in
+                Button("다운로드") { pendingSong = nil; start(s) }
+                Button("취소", role: .cancel) { pendingSong = nil }
+            } message: { s in
+                Text("\(s.artist) - \(s.title)\n\(mode == "audio" ? "음원" : "영상") \(quality)")
+            }
         }
         .navigationViewStyle(.stack)
     }
@@ -83,9 +96,11 @@ struct Top100Screen: View {
     }
 
     private func start(_ s: SongEntry) {
+        busySongs.insert(songKey(s))
         let task = DownloadTask(label: "\(s.artist) - \(s.title)", progress: 0, state: .running("준비 중"))
         tasks.append(task)
         Task { @MainActor in
+            defer { busySongs.remove(songKey(s)) }
             do {
                 let path = try await Engine.shared.searchDownload(
                     artist: s.artist, title: s.title, kind: mode, quality: quality

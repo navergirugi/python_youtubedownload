@@ -8,6 +8,8 @@ struct AudioSearchScreen: View {
     @State private var tasks: [DownloadTask] = []
     @State private var isSearching = false
     @State private var log = ""
+    @State private var pending: Candidate?
+    @State private var busyURLs = Set<String>()
 
     var body: some View {
         NavigationView {
@@ -38,14 +40,14 @@ struct AudioSearchScreen: View {
                 if !candidates.isEmpty {
                     Section("검색 결과") {
                         ForEach(candidates) { c in
-                            CandidateRow(candidate: c) { start(c) }
+                            CandidateRow(candidate: c) { if !busyURLs.contains(c.url) { pending = c } }
                         }
                     }
                 }
                 if !tasks.isEmpty {
                     Section("진행") {
                         ForEach(tasks) { t in
-                            TaskRow(task: t)
+                            TaskRow(task: t, onShare: { shareFile($0) })
                         }
                     }
                 }
@@ -56,6 +58,15 @@ struct AudioSearchScreen: View {
                 }
             }
             .navigationTitle("음원 검색")
+            .alert("다운로드할까요?", isPresented: Binding(
+                get: { pending != nil },
+                set: { if !$0 { pending = nil } }
+            ), presenting: pending) { c in
+                Button("다운로드") { pending = nil; start(c) }
+                Button("취소", role: .cancel) { pending = nil }
+            } message: { c in
+                Text("\(c.title)\n\(c.channel)")
+            }
         }
         .navigationViewStyle(.stack)
     }
@@ -76,9 +87,11 @@ struct AudioSearchScreen: View {
     }
 
     private func start(_ c: Candidate) {
+        busyURLs.insert(c.url)
         let task = DownloadTask(label: c.title, progress: 0, state: .running("준비 중"))
         tasks.append(task)
         Task { @MainActor in
+            defer { busyURLs.remove(c.url) }
             do {
                 let path = try await Engine.shared.download(
                     url: c.url, artist: artist, title: title, kind: "audio", quality: bitrate

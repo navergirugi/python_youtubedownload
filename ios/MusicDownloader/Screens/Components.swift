@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CandidateRow: View {
     let candidate: Candidate
@@ -46,6 +47,7 @@ struct Top100Row: View {
 
 struct TaskRow: View {
     let task: DownloadTask
+    var onShare: ((String) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -59,11 +61,38 @@ struct TaskRow: View {
                     Text(note).font(.caption)
                 }
             case .done(let path):
-                Text("완료: \(path)").font(.caption).foregroundStyle(.green)
+                HStack {
+                    Text("완료").font(.caption).foregroundStyle(.green)
+                    Spacer()
+                    if onShare != nil {
+                        Button("공유") { onShare?(path) }
+                            .font(.caption)
+                    }
+                }
+                Text(path).font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
             case .failed(let msg):
                 Text("실패: \(msg)").font(.caption).foregroundStyle(.red)
             }
         }
         .font(.subheadline)
     }
+}
+
+/// 다운로드된 파일을 iOS 공유 시트로 보낸다.
+/// "파일에 저장"이면 같은 기기의 파일 앱에 저장되고,
+/// AirDrop·VLC 등 같은 시트에서 다른 기기/앱 전송도 된다.
+/// iPad 팝오버 크래시 방지로 sourceView를 반드시 지정한다.
+func shareFile(_ path: String) {
+    let url = URL(fileURLWithPath: path)
+    guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let root = scene.windows.first?.rootViewController,
+          root.presentedViewController == nil else { return }
+    let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    if let pop = vc.popoverPresentationController {
+        pop.sourceView = root.view
+        pop.sourceRect = CGRect(x: root.view.bounds.midX, y: root.view.bounds.midY, width: 0, height: 0)
+        pop.permittedArrowDirections = []
+    }
+    root.present(vc, animated: true)
 }

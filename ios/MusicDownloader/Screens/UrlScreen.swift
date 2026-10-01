@@ -9,6 +9,13 @@ struct UrlScreen: View {
     @State private var quality = "192"
     @State private var task: DownloadTask?
     @State private var log = ""
+    @State private var confirmStart = false
+
+    private var isRunning: Bool {
+        guard let t = task else { return false }
+        if case .running = t.state { return true }
+        return false
+    }
 
     var body: some View {
         NavigationView {
@@ -38,12 +45,18 @@ struct UrlScreen: View {
                 }
                 Section {
                     Button("다운로드") {
-                        start()
+                        confirmStart = true
                     }
-                    .disabled(url.isEmpty)
+                    .disabled(url.isEmpty || isRunning)
+                    .alert("다운로드할까요?", isPresented: $confirmStart) {
+                        Button("다운로드") { start() }
+                        Button("취소", role: .cancel) {}
+                    } message: {
+                        Text(url)
+                    }
                 }
                 if let t = task {
-                    Section("진행") { TaskRow(task: t) }
+                    Section("진행") { TaskRow(task: t, onShare: { shareFile($0) }) }
                 }
                 if !log.isEmpty {
                     Section("로그") { Text(log).font(.footnote).foregroundStyle(.secondary) }
