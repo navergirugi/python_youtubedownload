@@ -47,6 +47,14 @@ struct SettingsScreen: View {
                 }
             }
             .navigationTitle("설정")
+            .onAppear {
+                // 탭 재진입 시 엔진 상태를 새로 읽는다.
+                // "준비 중" 표시가 boot 완료 후에도 남는 staleness 방지.
+                // 업데이트 결과(완료/실패) 메시지는 유지한다.
+                if !engineInfo.hasPrefix("완료") && !engineInfo.hasPrefix("실패") {
+                    engineInfo = Engine.shared.status
+                }
+            }
         }
         .navigationViewStyle(.stack)
     }
