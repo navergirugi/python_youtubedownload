@@ -27,6 +27,22 @@ def _ensure_ssl_certs() -> bool:
 
 _SSL_OK = _ensure_ssl_certs()
 
+def _app_tag() -> str:
+    try:
+        import plistlib
+        here = os.path.dirname(os.path.abspath(__file__))
+        root = os.path.dirname(here)
+        with open(os.path.join(root, "Info.plist"), "rb") as f:
+            info = plistlib.load(f)
+        short = info.get("CFBundleShortVersionString", "?")
+        build = info.get("CFBundleVersion", "?")
+        return f"{short}({build})"
+    except Exception:
+        return "?"
+
+
+_APP_TAG = _app_tag()
+
 
 def _documents() -> str:
     return os.path.join(os.path.expanduser("~"), "Documents")
@@ -160,13 +176,13 @@ def activate_update() -> str:
                   if m == "yt_dlp" or m.startswith("yt_dlp.")]:
             del sys.modules[m]
         import yt_dlp.version
-        return f"{yt_dlp.version.__version__};ssl={'ok' if _SSL_OK else 'missing'}"
+        return f"{yt_dlp.version.__version__};ssl={'ok' if _SSL_OK else 'missing'};app={_APP_TAG}"
     except BaseException:
         try:
             import yt_dlp.version
-            return f"{yt_dlp.version.__version__};ssl={'ok' if _SSL_OK else 'missing'}"
+            return f"{yt_dlp.version.__version__};ssl={'ok' if _SSL_OK else 'missing'};app={_APP_TAG}"
         except BaseException:
-            return f"unknown;ssl={'ok' if _SSL_OK else 'missing'}"
+            return f"unknown;ssl={'ok' if _SSL_OK else 'missing'};app={_APP_TAG}"
 
 
 def update_ytdlp() -> dict:
