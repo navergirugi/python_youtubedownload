@@ -47,12 +47,13 @@ struct VideoSearchScreen: View {
             }
             .navigationTitle("영상 검색")
         }
+        .navigationViewStyle(.stack)
     }
 
     private func search() {
         isSearching = true
         log = ""
-        Task {
+        Task { @MainActor in
             do {
                 let r = try await Engine.shared.search(artist: artist, title: title, kind: "video")
                 candidates = r
@@ -67,7 +68,7 @@ struct VideoSearchScreen: View {
     private func start(_ c: Candidate) {
         let task = DownloadTask(label: c.title, progress: 0, state: .running("준비 중"))
         tasks.append(task)
-        Task {
+        Task { @MainActor in
             do {
                 let path = try await Engine.shared.download(
                     url: c.url, artist: artist, title: title, kind: "video", quality: quality

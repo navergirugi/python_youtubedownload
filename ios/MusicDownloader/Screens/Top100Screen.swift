@@ -60,15 +60,16 @@ struct Top100Screen: View {
             }
             .navigationTitle("멜론 TOP100")
         }
+        .navigationViewStyle(.stack)
     }
 
     private func load() {
         isLoading = true
         log = ""
-        Task {
+        Task { @MainActor in
             do {
                 if useManual {
-                    songs = try Engine.shared.parseManual(manual)
+                    songs = try await Engine.shared.parseManual(manual)
                     log = "직접 입력 \(songs.count)곡"
                 } else {
                     songs = try await Engine.shared.top100()
@@ -84,7 +85,7 @@ struct Top100Screen: View {
     private func start(_ s: SongEntry) {
         let task = DownloadTask(label: "\(s.artist) - \(s.title)", progress: 0, state: .running("준비 중"))
         tasks.append(task)
-        Task {
+        Task { @MainActor in
             do {
                 let path = try await Engine.shared.searchDownload(
                     artist: s.artist, title: s.title, kind: mode, quality: quality

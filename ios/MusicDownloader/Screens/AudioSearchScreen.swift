@@ -57,12 +57,13 @@ struct AudioSearchScreen: View {
             }
             .navigationTitle("음원 검색")
         }
+        .navigationViewStyle(.stack)
     }
 
     private func search() {
         isSearching = true
         log = ""
-        Task {
+        Task { @MainActor in
             do {
                 let r = try await Engine.shared.search(artist: artist, title: title, kind: "audio")
                 candidates = r
@@ -77,7 +78,7 @@ struct AudioSearchScreen: View {
     private func start(_ c: Candidate) {
         let task = DownloadTask(label: c.title, progress: 0, state: .running("준비 중"))
         tasks.append(task)
-        Task {
+        Task { @MainActor in
             do {
                 let path = try await Engine.shared.download(
                     url: c.url, artist: artist, title: title, kind: "audio", quality: bitrate

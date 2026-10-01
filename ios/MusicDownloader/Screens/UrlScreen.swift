@@ -57,13 +57,14 @@ struct UrlScreen: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     private func start() {
         let t = DownloadTask(label: artist.isEmpty ? url : "\(artist) - \(title)", progress: 0, state: .running("준비 중"))
         task = t
         log = ""
-        Task {
+        Task { @MainActor in
             do {
                 let path = try await Engine.shared.download(
                     url: url, artist: artist, title: title, kind: kind, quality: quality

@@ -29,7 +29,7 @@ struct SettingsScreen: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Button("지금 업데이트") {
-                        Task {
+                        Task { @MainActor in
                             engineInfo = "업데이트 중..."
                             do {
                                 try await Engine.shared.updateYtdlp()
@@ -48,5 +48,6 @@ struct SettingsScreen: View {
             }
             .navigationTitle("설정")
         }
+        .navigationViewStyle(.stack)
     }
 }
