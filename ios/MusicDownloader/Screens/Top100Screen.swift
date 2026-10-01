@@ -11,7 +11,7 @@ struct Top100Screen: View {
     @State private var tasks: [DownloadTask] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section {
                     Toggle("크롤링 실패 시 직접 입력", isOn: $useManual)

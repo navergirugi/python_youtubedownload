@@ -11,7 +11,7 @@ struct UrlScreen: View {
     @State private var log = ""
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section("URL") {
                     TextField("https://youtube.com/watch?v=...", text: $url)

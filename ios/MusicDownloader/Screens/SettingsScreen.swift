@@ -7,11 +7,21 @@ struct SettingsScreen: View {
     @State private var engineInfo = ""
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section("저장 위치") {
-                    LabeledContent("음원", value: audioDir.isEmpty ? "기본" : audioDir)
-                    LabeledContent("영상", value: videoDir.isEmpty ? "기본" : videoDir)
+                    HStack {
+                        Text("음원")
+                        Spacer()
+                        Text(audioDir.isEmpty ? "기본" : audioDir)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("영상")
+                        Spacer()
+                        Text(videoDir.isEmpty ? "기본" : videoDir)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 Section("yt-dlp") {
                     Toggle("자동 업데이트", isOn: $ytdlpAutoUpdate)

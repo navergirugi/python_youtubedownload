@@ -10,7 +10,7 @@ struct AudioSearchScreen: View {
     @State private var log = ""
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section("가수명") {
                     TextField("아이유", text: $artist)
